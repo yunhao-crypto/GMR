@@ -26,7 +26,7 @@ class GeneralMotionRetargeting:
         if verbose:
             print("Use robot model: ", self.xml_file)
         self.model = mj.MjModel.from_xml_path(self.xml_file)
-        
+
         # Print DoF names in order
         print("[GMR] Robot Degrees of Freedom (DoF) names and their order:")
         self.robot_dof_names = {}
@@ -35,8 +35,7 @@ class GeneralMotionRetargeting:
             self.robot_dof_names[dof_name] = i
             if verbose:
                 print(f"DoF {i}: {dof_name}")
-            
-            
+
         print("[GMR] Robot Body names and their IDs:")
         self.robot_body_names = {}
         for i in range(self.model.nbody):  # 'nbody' is the number of bodies
@@ -44,7 +43,7 @@ class GeneralMotionRetargeting:
             self.robot_body_names[body_name] = i
             if verbose:
                 print(f"Body ID {i}: {body_name}")
-        
+
         print("[GMR] Robot Motor (Actuator) names and their IDs:")
         self.robot_motor_names = {}
         for i in range(self.model.nu):  # 'nu' is the number of actuators (motors)
@@ -58,17 +57,16 @@ class GeneralMotionRetargeting:
             ik_config = json.load(f)
         if verbose:
             print("Use IK config: ", IK_CONFIG_DICT[src_human][tgt_robot])
-        
+
         # compute the scale ratio based on given human height and the assumption in the IK config
         if actual_human_height is not None:
             ratio = actual_human_height / ik_config["human_height_assumption"]
         else:
             ratio = 1.0
-            
+
         # adjust the human scale table
         for key in ik_config["human_scale_table"].keys():
             ik_config["human_scale_table"][key] = ik_config["human_scale_table"][key] * ratio
-    
 
         # used for retargeting
         self.ik_match_table1 = ik_config["ik_match_table1"]
@@ -84,6 +82,9 @@ class GeneralMotionRetargeting:
 
         self.solver = solver
         self.damping = damping
+        self.first_frame_damping = max(float(damping), 2.0)
+        self.first_frame_max_iter = max(int(self.max_iter), 10)
+        self._is_first_frame = True
 
         self.human_body_to_task1 = {}
         self.human_body_to_task2 = {}
@@ -91,6 +92,8 @@ class GeneralMotionRetargeting:
         self.rot_offsets1 = {}
         self.pos_offsets2 = {}
         self.rot_offsets2 = {}
+        self._arm_task_original_orientation_costs = {}
+        self._first_frame_arm_orientation_cost = 1.0
 
         self.task_errors1 = {}
         self.task_errors2 = {}
@@ -98,18 +101,23 @@ class GeneralMotionRetargeting:
         self.ik_limits = [mink.ConfigurationLimit(self.model)]
         if use_velocity_limit:
             VELOCITY_LIMITS = {k: 3*np.pi for k in self.robot_motor_names.keys()}
-            self.ik_limits.append(mink.VelocityLimit(self.model, VELOCITY_LIMITS)) 
-            
+            self.ik_limits.append(mink.VelocityLimit(self.model, VELOCITY_LIMITS))
+
         self.setup_retarget_configuration()
-        
+
         self.ground_offset = 0.0
 
     def setup_retarget_configuration(self):
         self.configuration = mink.Configuration(self.model)
-    
+        self._default_qpos = self.configuration.data.qpos.copy()
+        self.posture_task = mink.PostureTask(self.model, cost=1e-2)
+        self.posture_task.set_target(self._default_qpos)
+        self.prev_posture_task = mink.PostureTask(self.model, cost=1e-3)
+        self.prev_posture_task.set_target(self._default_qpos)
+
         self.tasks1 = []
         self.tasks2 = []
-        
+
         for frame_name, entry in self.ik_match_table1.items():
             body_name, pos_weight, rot_weight, pos_offset, rot_offset = entry
             if pos_weight != 0 or rot_weight != 0:
@@ -127,7 +135,11 @@ class GeneralMotionRetargeting:
                 )
                 self.tasks1.append(task)
                 self.task_errors1[task] = []
-        
+                if self._is_arm_body(body_name):
+                    self._arm_task_original_orientation_costs[task] = float(
+                        rot_weight
+                    )
+
         for frame_name, entry in self.ik_match_table2.items():
             body_name, pos_weight, rot_weight, pos_offset, rot_offset = entry
             if pos_weight != 0 or rot_weight != 0:
@@ -145,6 +157,10 @@ class GeneralMotionRetargeting:
                 )
                 self.tasks2.append(task)
                 self.task_errors2[task] = []
+                if self._is_arm_body(body_name):
+                    self._arm_task_original_orientation_costs[task] = float(
+                        rot_weight
+                    )
 
   
     def update_targets(self, human_data, offset_to_ground=False):
@@ -170,52 +186,114 @@ class GeneralMotionRetargeting:
                 task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot), pos))
             
             
+    @staticmethod
+    def _is_arm_body(body_name):
+        return any(
+            token in body_name
+            for token in (
+                "left_shoulder",
+                "right_shoulder",
+                "left_elbow",
+                "right_elbow",
+                "left_wrist",
+                "right_wrist",
+            )
+        )
+
+    def _set_first_frame_arm_task_costs(self, enabled):
+        for task, original_orientation_cost in (
+            self._arm_task_original_orientation_costs.items()
+        ):
+            orientation_cost = (
+                self._first_frame_arm_orientation_cost
+                if enabled
+                else original_orientation_cost
+            )
+            task.set_orientation_cost(orientation_cost)
+
+    def _solve_task_group(
+        self,
+        tasks,
+        error_fn,
+        *,
+        damping,
+        max_iter,
+        include_posture,
+        include_prev_posture,
+    ):
+        solve_tasks = list(tasks)
+        if include_posture:
+            solve_tasks.append(self.posture_task)
+        if include_prev_posture:
+            solve_tasks.append(self.prev_posture_task)
+
+        curr_error = error_fn()
+        dt = self.configuration.model.opt.timestep
+        vel = mink.solve_ik(
+            self.configuration,
+            solve_tasks,
+            dt,
+            self.solver,
+            damping,
+            limits=self.ik_limits,
+        )
+        self.configuration.integrate_inplace(vel, dt)
+        next_error = error_fn()
+        num_iter = 0
+        while curr_error - next_error > 0.001 and num_iter < max_iter:
+            curr_error = next_error
+            dt = self.configuration.model.opt.timestep
+            vel = mink.solve_ik(
+                self.configuration,
+                solve_tasks,
+                dt,
+                self.solver,
+                damping,
+                limits=self.ik_limits,
+            )
+            self.configuration.integrate_inplace(vel, dt)
+            next_error = error_fn()
+            num_iter += 1
+
     def retarget(self, human_data, offset_to_ground=False):
+        prev_q = self.configuration.data.qpos.copy()
         # Update the task targets
         self.update_targets(human_data, offset_to_ground)
+        include_posture = self._is_first_frame
+        include_prev_posture = True
+        solve_damping = (
+            self.first_frame_damping if self._is_first_frame else self.damping
+        )
+        solve_max_iter = (
+            self.first_frame_max_iter if self._is_first_frame else self.max_iter
+        )
+        self.prev_posture_task.set_target(prev_q)
+        if self._is_first_frame:
+            self._set_first_frame_arm_task_costs(True)
 
         if self.use_ik_match_table1:
-            # Solve the IK problem
-            curr_error = self.error1()
-            dt = self.configuration.model.opt.timestep
-            vel1 = mink.solve_ik(
-                self.configuration, self.tasks1, dt, self.solver, self.damping, self.ik_limits
+            self._solve_task_group(
+                self.tasks1,
+                self.error1,
+                damping=solve_damping,
+                max_iter=solve_max_iter,
+                include_posture=include_posture,
+                include_prev_posture=include_prev_posture,
             )
-            self.configuration.integrate_inplace(vel1, dt)
-            next_error = self.error1()
-            num_iter = 0
-            while curr_error - next_error > 0.001 and num_iter < self.max_iter:
-                curr_error = next_error
-                dt = self.configuration.model.opt.timestep
-                vel1 = mink.solve_ik(
-                    self.configuration, self.tasks1, dt, self.solver, self.damping, self.ik_limits
-                )
-                self.configuration.integrate_inplace(vel1, dt)
-                next_error = self.error1()
-                num_iter += 1
 
         if self.use_ik_match_table2:
-            curr_error = self.error2()
-            dt = self.configuration.model.opt.timestep
-            vel2 = mink.solve_ik(
-                self.configuration, self.tasks2, dt, self.solver, self.damping, self.ik_limits
+            self._solve_task_group(
+                self.tasks2,
+                self.error2,
+                damping=solve_damping,
+                max_iter=solve_max_iter,
+                include_posture=include_posture,
+                include_prev_posture=include_prev_posture,
             )
-            self.configuration.integrate_inplace(vel2, dt)
-            next_error = self.error2()
-            num_iter = 0
-            while curr_error - next_error > 0.001 and num_iter < self.max_iter:
-                curr_error = next_error
-                # Solve the IK problem with the second task
-                dt = self.configuration.model.opt.timestep
-                vel2 = mink.solve_ik(
-                    self.configuration, self.tasks2, dt, self.solver, self.damping, self.ik_limits
-                )
-                self.configuration.integrate_inplace(vel2, dt)
-                
-                next_error = self.error2()
-                num_iter += 1
-                
-            
+
+        if self._is_first_frame:
+            self._set_first_frame_arm_task_costs(False)
+        self._is_first_frame = False
         return self.configuration.data.qpos.copy()
 
 

@@ -90,7 +90,8 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
 
     log_memory("After retargeting")
     
-    device = "cuda:0"
+    # Allow forcing CPU/selected CUDA device from the environment for stability.
+    device = os.environ.get("HOLOMOTION_GMR_DEVICE", "cuda:0")
     kinematics_model = KinematicsModel(retargeter.xml_file, device=device)
 
     try:
@@ -163,7 +164,8 @@ def process_file(smplx_file_path, tgt_file_path, tgt_robot, SMPLX_FOLDER, tgt_fo
         tracemalloc.stop()
         
     # clean cache
-    torch.cuda.empty_cache()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
     gc.collect()
     
 
