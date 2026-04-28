@@ -2,12 +2,17 @@ import argparse
 import pathlib
 import os
 import time
+import copy
 
 import numpy as np
 
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from general_motion_retargeting import RobotMotionViewer
 from general_motion_retargeting.utils.smpl import load_smplx_file, get_smplx_data_offline_fast
+from general_motion_retargeting.reference_postprocess import (
+    has_sequence_postprocess,
+    postprocess_qpos_sequence,
+)
 
 from rich import print
 
@@ -31,9 +36,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "--robot",
         choices=["unitree_g1", "unitree_g1_with_hands", "unitree_h1", "unitree_h1_2",
-                 "booster_t1", "booster_t1_29dof","stanford_toddy", "fourier_n1", 
+                 "booster_t1", "booster_t1_29dof","stanford_toddy", "fourier_n1",
                 "engineai_pm01", "kuavo_s45", "hightorque_hi", "galaxea_r1pro", "berkeley_humanoid_lite", "booster_k1",
-                "pnd_adam_lite", "openloong", "tienkung"],
+                "pnd_adam_lite", "openloong", "tienkung", "vt_human"],
         default="unitree_g1",
     )
     
@@ -64,6 +69,23 @@ if __name__ == "__main__":
         help="Limit the rate of the retargeted robot motion to keep the same as the human motion.",
     )
 
+    parser.add_argument(
+        "--video_path",
+        default=None,
+        help="Override the recorded video path. Defaults to videos/{robot}_{clip}.mp4.",
+    )
+    parser.add_argument(
+        "--show_human_labels",
+        action="store_true",
+        help="Render human keypoint names alongside the SMPL-X axis overlay.",
+    )
+    parser.add_argument(
+        "--human_point_scale",
+        default=0.1,
+        type=float,
+        help="Size of the SMPL-X keypoint axes overlaid on the robot.",
+    )
+
     args = parser.parse_args()
 
 
@@ -86,12 +108,13 @@ if __name__ == "__main__":
         src_human="smplx",
         tgt_robot=args.robot,
     )
-    
+
+    default_video_path = f"videos/{args.robot}_{pathlib.Path(args.smplx_file).stem}.mp4"
     robot_motion_viewer = RobotMotionViewer(robot_type=args.robot,
                                             motion_fps=aligned_fps,
                                             transparent_robot=0,
                                             record_video=args.record_video,
-                                            video_path=f"videos/{args.robot}_{args.smplx_file.split('/')[-1].split('.')[0]}.mp4",)
+                                            video_path=args.video_path or default_video_path,)
     
 
     curr_frame = 0
@@ -105,6 +128,22 @@ if __name__ == "__main__":
         if save_dir:  # Only create directory if it's not empty
             os.makedirs(save_dir, exist_ok=True)
         qpos_list = []
+
+    use_sequence_postprocess = has_sequence_postprocess(args.robot)
+    qpos_frames = None
+    human_frames = None
+    if use_sequence_postprocess:
+        n_frames = len(smplx_data_frames)
+        print(f"[{args.robot}] sequence postprocess: retargeting {n_frames} frames...")
+        qpos_frames = []
+        human_frames = []
+        for smplx_frame_data in smplx_data_frames:
+            qpos = retarget.retarget(smplx_frame_data, offset_to_ground=False)
+            qpos_frames.append(qpos.copy())
+            human_frames.append(copy.deepcopy(retarget.scaled_human_data))
+        print(f"[{args.robot}] sequence postprocess: applying butterworth + ground snap...")
+        qpos_frames = postprocess_qpos_sequence(retarget, qpos_frames, aligned_fps)
+        print(f"[{args.robot}] sequence postprocess: done")
     
     # Start the viewer
     i = 0
@@ -129,18 +168,23 @@ if __name__ == "__main__":
         # Update task targets.
         smplx_data = smplx_data_frames[i]
 
-        # retarget
-        qpos = retarget.retarget(smplx_data)
+        if use_sequence_postprocess:
+            qpos = qpos_frames[i]
+            human_motion_data = human_frames[i]
+        else:
+            qpos = retarget.retarget(smplx_data, offset_to_ground=False)
+            human_motion_data = retarget.scaled_human_data
 
         # visualize
         robot_motion_viewer.step(
             root_pos=qpos[:3],
             root_rot=qpos[3:7],
             dof_pos=qpos[7:],
-            human_motion_data=retarget.scaled_human_data,
+            human_motion_data=human_motion_data,
             # human_motion_data=smplx_data,
             human_pos_offset=np.array([0.0, 0.0, 0.0]),
-            show_human_body_name=False,
+            show_human_body_name=args.show_human_labels,
+            human_point_scale=args.human_point_scale,
             rate_limit=args.rate_limit,
         )
         if args.save_path is not None:

@@ -5,7 +5,54 @@ import numpy as np
 import json
 from scipy.spatial.transform import Rotation as R
 from .params import ROBOT_XML_DICT, IK_CONFIG_DICT
+from ._geom_utils import collect_geom_ids_by_token, geom_min_z
 from rich import print
+
+
+_WAIST_REGULARIZER_SPECS = {
+    "vt_human": {"joints": ("waist_yaw_joint", "waist_pitch_joint"), "cost": 20.0},
+}
+
+_PREV_POSTURE_SMOOTHING_SPECS = {
+    "vt_human": {
+        "default_cost": 1e-3,
+        "joint_costs": {
+            "waist_yaw_joint": 1e-1,
+            "waist_pitch_joint": 1e-1,
+            "left_shoulder_pitch_joint": 5e-2,
+            "left_shoulder_roll_joint": 5e-2,
+            "left_shoulder_yaw_joint": 5e-2,
+            "left_elbow_joint": 5e-2,
+            "right_shoulder_pitch_joint": 5e-2,
+            "right_shoulder_roll_joint": 5e-2,
+            "right_shoulder_yaw_joint": 5e-2,
+            "right_elbow_joint": 5e-2,
+        },
+    },
+}
+
+_GROUND_SNAP_SPECS = {
+    "vt_human": {"geom_name_token": "foot", "clearance": 0.0},
+}
+
+_QPOS_SMOOTHING_SPECS = {
+    "vt_human": {
+        "alpha": 0.35,
+        "joints": (
+            "waist_yaw_joint",
+            "waist_pitch_joint",
+            "left_shoulder_pitch_joint",
+            "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "left_elbow_joint",
+            "right_shoulder_pitch_joint",
+            "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "right_elbow_joint",
+        ),
+    },
+}
+
 
 class GeneralMotionRetargeting:
     """General Motion Retargeting (GMR).
@@ -20,6 +67,7 @@ class GeneralMotionRetargeting:
         verbose: bool=True,
         use_velocity_limit: bool=False,
     ) -> None:
+        self.tgt_robot = tgt_robot
 
         # load the robot model
         self.xml_file = str(ROBOT_XML_DICT[tgt_robot])
@@ -112,8 +160,16 @@ class GeneralMotionRetargeting:
         self._default_qpos = self.configuration.data.qpos.copy()
         self.posture_task = mink.PostureTask(self.model, cost=1e-2)
         self.posture_task.set_target(self._default_qpos)
-        self.prev_posture_task = mink.PostureTask(self.model, cost=1e-3)
+        self.prev_posture_task = mink.PostureTask(
+            self.model,
+            cost=self._build_prev_posture_cost(),
+        )
         self.prev_posture_task.set_target(self._default_qpos)
+        self.waist_posture_task = self._build_waist_regularizer_task()
+        self.ground_snap_geom_ids, self.ground_snap_clearance = self._build_ground_snap()
+        self.qpos_smoothing_alpha, self.qpos_smoothing_indices = (
+            self._build_qpos_smoothing_spec()
+        )
 
         self.tasks1 = []
         self.tasks2 = []
@@ -128,10 +184,12 @@ class GeneralMotionRetargeting:
                     orientation_cost=rot_weight,
                     lm_damping=1,
                 )
-                self.human_body_to_task1[body_name] = task
-                self.pos_offsets1[body_name] = np.array(pos_offset) - self.ground
-                self.rot_offsets1[body_name] = R.from_quat(
-                    rot_offset, scalar_first=True
+                self.human_body_to_task1.setdefault(body_name, []).append(task)
+                self.pos_offsets1.setdefault(body_name, []).append(
+                    np.array(pos_offset) - self.ground
+                )
+                self.rot_offsets1.setdefault(body_name, []).append(
+                    R.from_quat(rot_offset, scalar_first=True)
                 )
                 self.tasks1.append(task)
                 self.task_errors1[task] = []
@@ -150,10 +208,12 @@ class GeneralMotionRetargeting:
                     orientation_cost=rot_weight,
                     lm_damping=1,
                 )
-                self.human_body_to_task2[body_name] = task
-                self.pos_offsets2[body_name] = np.array(pos_offset) - self.ground
-                self.rot_offsets2[body_name] = R.from_quat(
-                    rot_offset, scalar_first=True
+                self.human_body_to_task2.setdefault(body_name, []).append(task)
+                self.pos_offsets2.setdefault(body_name, []).append(
+                    np.array(pos_offset) - self.ground
+                )
+                self.rot_offsets2.setdefault(body_name, []).append(
+                    R.from_quat(rot_offset, scalar_first=True)
                 )
                 self.tasks2.append(task)
                 self.task_errors2[task] = []
@@ -162,30 +222,133 @@ class GeneralMotionRetargeting:
                         rot_weight
                     )
 
-  
+    def _build_waist_regularizer_task(self):
+        """Per-DOF posture task that pins regularizer joints to default qpos."""
+        spec = _WAIST_REGULARIZER_SPECS.get(self.tgt_robot)
+        if spec is None:
+            return None
+
+        cost_vec = np.zeros(self.model.nv)
+        missing = []
+        for joint_name in spec["joints"]:
+            dof_idx = self.robot_dof_names.get(joint_name)
+            if dof_idx is None:
+                missing.append(joint_name)
+            else:
+                cost_vec[dof_idx] = spec["cost"]
+
+        if missing:
+            print(
+                f"[GMR] warning: waist regularizer skipped — joints not found "
+                f"in {self.tgt_robot}: {missing}"
+            )
+            return None
+
+        task = mink.PostureTask(self.model, cost=cost_vec)
+        task.set_target(self._default_qpos)
+        return task
+
+    def _build_prev_posture_cost(self):
+        spec = _PREV_POSTURE_SMOOTHING_SPECS.get(self.tgt_robot)
+        if spec is None:
+            return 1e-3
+
+        cost_vec = np.full(self.model.nv, float(spec["default_cost"]))
+        missing = []
+        for joint_name, joint_cost in spec["joint_costs"].items():
+            dof_idx = self.robot_dof_names.get(joint_name)
+            if dof_idx is None:
+                missing.append(joint_name)
+            else:
+                cost_vec[dof_idx] = float(joint_cost)
+        if missing:
+            print(
+                f"[GMR] warning: prev_posture per-joint cost ignored — joints "
+                f"not found in {self.tgt_robot}: {missing}"
+            )
+        return cost_vec
+
+    def _build_ground_snap(self):
+        """Returns (geom_ids, clearance) for foot-snapping; ([], 0.0) if disabled."""
+        spec = _GROUND_SNAP_SPECS.get(self.tgt_robot)
+        if spec is None:
+            return [], 0.0
+
+        token = spec["geom_name_token"]
+        geom_ids = collect_geom_ids_by_token(self.model, token)
+        if not geom_ids:
+            print(
+                f"[GMR] warning: ground snap disabled — no geom name contains "
+                f"'{token}' in {self.tgt_robot}"
+            )
+        return geom_ids, float(spec["clearance"])
+
+    def _build_qpos_smoothing_spec(self):
+        spec = _QPOS_SMOOTHING_SPECS.get(self.tgt_robot)
+        if spec is None:
+            return None, ()
+
+        qpos_indices = []
+        missing = []
+        for joint_name in spec["joints"]:
+            joint_id = mj.mj_name2id(self.model, mj.mjtObj.mjOBJ_JOINT, joint_name)
+            if joint_id == -1:
+                missing.append(joint_name)
+                continue
+            qpos_indices.append(int(self.model.jnt_qposadr[joint_id]))
+
+        if missing:
+            print(
+                f"[GMR] warning: qpos smoothing skipped — joints not found "
+                f"in {self.tgt_robot}: {missing}"
+            )
+            return None, ()
+        return float(spec["alpha"]), tuple(qpos_indices)
+
     def update_targets(self, human_data, offset_to_ground=False):
         # scale human data in local frame
         human_data = self.to_numpy(human_data)
         human_data = self.scale_human_data(human_data, self.human_root_name, self.human_scale_table)
-        human_data = self.offset_human_data(human_data, self.pos_offsets1, self.rot_offsets1)
         human_data = self.apply_ground_offset(human_data)
         if offset_to_ground:
             human_data = self.offset_human_data_to_ground(human_data)
         self.scaled_human_data = human_data
 
         if self.use_ik_match_table1:
-            for body_name in self.human_body_to_task1.keys():
-                task = self.human_body_to_task1[body_name]
-                pos, rot = human_data[body_name]
-                task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot), pos))
-        
+            self._update_table_targets(
+                self.human_body_to_task1,
+                self.pos_offsets1,
+                self.rot_offsets1,
+                human_data,
+            )
         if self.use_ik_match_table2:
-            for body_name in self.human_body_to_task2.keys():
-                task = self.human_body_to_task2[body_name]
-                pos, rot = human_data[body_name]
-                task.set_target(mink.SE3.from_rotation_and_translation(mink.SO3(rot), pos))
-            
-            
+            self._update_table_targets(
+                self.human_body_to_task2,
+                self.pos_offsets2,
+                self.rot_offsets2,
+                human_data,
+            )
+
+    @staticmethod
+    def _update_table_targets(body_to_tasks, pos_offsets, rot_offsets, human_data):
+        for body_name, tasks in body_to_tasks.items():
+            pos, rot = human_data[body_name]
+            for task, pos_offset, rot_offset in zip(
+                tasks, pos_offsets[body_name], rot_offsets[body_name]
+            ):
+                updated_quat = (
+                    R.from_quat(rot, scalar_first=True) * rot_offset
+                ).as_quat(scalar_first=True)
+                global_pos_offset = R.from_quat(
+                    updated_quat, scalar_first=True
+                ).apply(pos_offset)
+                task.set_target(
+                    mink.SE3.from_rotation_and_translation(
+                        mink.SO3(updated_quat), pos + global_pos_offset
+                    )
+                )
+
+
     @staticmethod
     def _is_arm_body(body_name):
         return any(
@@ -204,12 +367,34 @@ class GeneralMotionRetargeting:
         for task, original_orientation_cost in (
             self._arm_task_original_orientation_costs.items()
         ):
-            orientation_cost = (
-                self._first_frame_arm_orientation_cost
-                if enabled
-                else original_orientation_cost
-            )
+            if enabled and original_orientation_cost > 0.0:
+                orientation_cost = self._first_frame_arm_orientation_cost
+            else:
+                orientation_cost = original_orientation_cost
             task.set_orientation_cost(orientation_cost)
+
+    def _apply_ground_snap(self):
+        if not self.ground_snap_geom_ids:
+            return
+        mj.mj_forward(self.model, self.configuration.data)
+        min_z = min(
+            geom_min_z(self.model, self.configuration.data, gid)
+            for gid in self.ground_snap_geom_ids
+        )
+        if min_z < self.ground_snap_clearance:
+            self.configuration.data.qpos[2] += self.ground_snap_clearance - min_z
+            mj.mj_forward(self.model, self.configuration.data)
+
+    def _apply_qpos_smoothing(self, prev_q):
+        if self.qpos_smoothing_alpha is None or not self.qpos_smoothing_indices:
+            return
+        alpha = self.qpos_smoothing_alpha
+        for qpos_idx in self.qpos_smoothing_indices:
+            current = self.configuration.data.qpos[qpos_idx]
+            self.configuration.data.qpos[qpos_idx] = prev_q[qpos_idx] + alpha * (
+                current - prev_q[qpos_idx]
+            )
+        mj.mj_forward(self.model, self.configuration.data)
 
     def _solve_task_group(
         self,
@@ -226,6 +411,8 @@ class GeneralMotionRetargeting:
             solve_tasks.append(self.posture_task)
         if include_prev_posture:
             solve_tasks.append(self.prev_posture_task)
+        if self.waist_posture_task is not None:
+            solve_tasks.append(self.waist_posture_task)
 
         curr_error = error_fn()
         dt = self.configuration.model.opt.timestep
@@ -255,20 +442,27 @@ class GeneralMotionRetargeting:
             next_error = error_fn()
             num_iter += 1
 
-    def retarget(self, human_data, offset_to_ground=False):
+    def retarget(
+        self,
+        human_data,
+        offset_to_ground=False,
+        apply_ground_snap=True,
+        apply_qpos_smoothing=True,
+    ):
+        is_first_frame = self._is_first_frame
         prev_q = self.configuration.data.qpos.copy()
         # Update the task targets
         self.update_targets(human_data, offset_to_ground)
-        include_posture = self._is_first_frame
+        include_posture = is_first_frame
         include_prev_posture = True
         solve_damping = (
-            self.first_frame_damping if self._is_first_frame else self.damping
+            self.first_frame_damping if is_first_frame else self.damping
         )
         solve_max_iter = (
-            self.first_frame_max_iter if self._is_first_frame else self.max_iter
+            self.first_frame_max_iter if is_first_frame else self.max_iter
         )
         self.prev_posture_task.set_target(prev_q)
-        if self._is_first_frame:
+        if is_first_frame:
             self._set_first_frame_arm_task_costs(True)
 
         if self.use_ik_match_table1:
@@ -291,9 +485,15 @@ class GeneralMotionRetargeting:
                 include_prev_posture=include_prev_posture,
             )
 
-        if self._is_first_frame:
+        if is_first_frame:
             self._set_first_frame_arm_task_costs(False)
         self._is_first_frame = False
+        if apply_ground_snap:
+            self._apply_ground_snap()
+        # Skip EMA on the very first frame: prev_q is the home pose, so EMA
+        # would pull the initial pose toward T-pose for one rendered frame.
+        if apply_qpos_smoothing and not is_first_frame:
+            self._apply_qpos_smoothing(prev_q)
         return self.configuration.data.qpos.copy()
 
 
@@ -343,24 +543,6 @@ class GeneralMotionRetargeting:
 
         return human_data_global
     
-    def offset_human_data(self, human_data, pos_offsets, rot_offsets):
-        """the pos offsets are applied in the local frame"""
-        offset_human_data = {}
-        for body_name in human_data.keys():
-            pos, quat = human_data[body_name]
-            offset_human_data[body_name] = [pos, quat]
-            # apply rotation offset first
-            updated_quat = (R.from_quat(quat, scalar_first=True) * rot_offsets[body_name]).as_quat(scalar_first=True)
-            offset_human_data[body_name][1] = updated_quat
-            
-            local_offset = pos_offsets[body_name]
-            # compute the global position offset using the updated rotation
-            global_pos_offset = R.from_quat(updated_quat, scalar_first=True).apply(local_offset)
-            
-            offset_human_data[body_name][0] = pos + global_pos_offset
-           
-        return offset_human_data
-            
     def offset_human_data_to_ground(self, human_data):
         """find the lowest point of the human data and offset the human data to the ground"""
         offset_human_data = {}
@@ -387,5 +569,5 @@ class GeneralMotionRetargeting:
     def apply_ground_offset(self, human_data):
         for body_name in human_data.keys():
             pos, quat = human_data[body_name]
-            human_data[body_name][0] = pos - np.array([0, 0, self.ground_offset])
+            human_data[body_name] = [pos - np.array([0, 0, self.ground_offset]), quat]
         return human_data
