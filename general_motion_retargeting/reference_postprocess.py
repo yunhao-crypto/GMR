@@ -47,9 +47,9 @@ _SEQUENCE_POSTPROCESS_SPECS = {
         "ground_clearance": 0.0,
         "stance_ground_snap": {
             "enabled": True,
-            "max_height": 0.04,
+            "max_height": 0.08,
             "max_vertical_speed": 0.20,
-            "max_snap_delta": 0.05,
+            "max_snap_delta": 0.08,
             "offset_smooth_cutoff_hz": 6.0,
         },
     },
