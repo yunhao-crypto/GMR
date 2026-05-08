@@ -107,5 +107,5 @@ VIEWER_CAM_DISTANCE_DICT = {
     "pnd_adam_lite": 3.0,
     "tienkung": 3.0,
     "pal_talos": 3.0,
-    "vt_human": 2.5,
+    "vt_human": 2.0,
 }
