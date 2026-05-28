@@ -5,54 +5,57 @@ from scipy.signal import butter, filtfilt
 from ._geom_utils import collect_geom_ids_by_token, geom_min_z
 
 
-_SEQUENCE_POSTPROCESS_SPECS = {
-    "vt_human": {
-        "butterworth_cutoff_hz": 2.0,
-        "butterworth_order": 4,
-        "filter_joint_names": (
-            "waist_yaw_joint",
-            "waist_pitch_joint",
-            "left_shoulder_pitch_joint",
-            "left_shoulder_roll_joint",
-            "left_shoulder_yaw_joint",
-            "left_elbow_joint",
-            "right_shoulder_pitch_joint",
-            "right_shoulder_roll_joint",
-            "right_shoulder_yaw_joint",
-            "right_elbow_joint",
+_VT_HUMAN_POSTPROCESS_SPEC = {
+    "butterworth_cutoff_hz": 2.0,
+    "butterworth_order": 4,
+    "filter_joint_names": (
+        "waist_yaw_joint",
+        "waist_pitch_joint",
+        "left_shoulder_pitch_joint",
+        "left_shoulder_roll_joint",
+        "left_shoulder_yaw_joint",
+        "left_elbow_joint",
+        "right_shoulder_pitch_joint",
+        "right_shoulder_roll_joint",
+        "right_shoulder_yaw_joint",
+        "right_elbow_joint",
+    ),
+    "standing_segment": {
+        "body_names": ("base_link", "left_toe_link", "right_toe_link"),
+        "base_xy_step_max": 0.004,
+        "toe_xy_step_max": 0.003,
+        "min_run_len": 12,
+        "butterworth_cutoff_hz": 1.5,
+        "root_position_qpos_indices": (0, 1),
+        "joint_names": (
+            "left_hip_pitch_joint",
+            "left_hip_roll_joint",
+            "left_hip_yaw_joint",
+            "left_knee_joint",
+            "left_ankle_pitch_joint",
+            "left_ankle_roll_joint",
+            "right_hip_pitch_joint",
+            "right_hip_roll_joint",
+            "right_hip_yaw_joint",
+            "right_knee_joint",
+            "right_ankle_pitch_joint",
+            "right_ankle_roll_joint",
         ),
-        "standing_segment": {
-            "body_names": ("base_link", "left_toe_link", "right_toe_link"),
-            "base_xy_step_max": 0.004,
-            "toe_xy_step_max": 0.003,
-            "min_run_len": 12,
-            "butterworth_cutoff_hz": 1.5,
-            "root_position_qpos_indices": (0, 1),
-            "joint_names": (
-                "left_hip_pitch_joint",
-                "left_hip_roll_joint",
-                "left_hip_yaw_joint",
-                "left_knee_joint",
-                "left_ankle_pitch_joint",
-                "left_ankle_roll_joint",
-                "right_hip_pitch_joint",
-                "right_hip_roll_joint",
-                "right_hip_yaw_joint",
-                "right_knee_joint",
-                "right_ankle_pitch_joint",
-                "right_ankle_roll_joint",
-            ),
-        },
-        "ground_geom_name_token": "foot",
-        "ground_clearance": 0.0,
-        "stance_ground_snap": {
-            "enabled": True,
-            "max_height": 0.08,
-            "max_vertical_speed": 0.20,
-            "max_snap_delta": 0.08,
-            "offset_smooth_cutoff_hz": 6.0,
-        },
     },
+    "ground_geom_name_token": "foot",
+    "ground_clearance": 0.0,
+    "stance_ground_snap": {
+        "enabled": True,
+        "max_height": 0.08,
+        "max_vertical_speed": 0.20,
+        "max_snap_delta": 0.08,
+        "offset_smooth_cutoff_hz": 6.0,
+    },
+}
+
+_SEQUENCE_POSTPROCESS_SPECS = {
+    "vt_human": _VT_HUMAN_POSTPROCESS_SPEC,
+    "vt_human_v2": _VT_HUMAN_POSTPROCESS_SPEC,
 }
 
 

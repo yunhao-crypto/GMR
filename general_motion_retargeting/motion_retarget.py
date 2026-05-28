@@ -11,6 +11,7 @@ from rich import print
 
 _WAIST_REGULARIZER_SPECS = {
     "vt_human": {"joints": ("waist_yaw_joint", "waist_pitch_joint"), "cost": 20.0},
+    "vt_human_v2": {"joints": ("waist_yaw_joint", "waist_pitch_joint"), "cost": 20.0},
 }
 
 _PREV_POSTURE_SMOOTHING_SPECS = {
@@ -29,14 +30,45 @@ _PREV_POSTURE_SMOOTHING_SPECS = {
             "right_elbow_joint": 5e-2,
         },
     },
+    "vt_human_v2": {
+        "default_cost": 1e-3,
+        "joint_costs": {
+            "waist_yaw_joint": 1e-1,
+            "waist_pitch_joint": 1e-1,
+            "left_shoulder_pitch_joint": 5e-2,
+            "left_shoulder_roll_joint": 5e-2,
+            "left_shoulder_yaw_joint": 5e-2,
+            "left_elbow_joint": 5e-2,
+            "right_shoulder_pitch_joint": 5e-2,
+            "right_shoulder_roll_joint": 5e-2,
+            "right_shoulder_yaw_joint": 5e-2,
+            "right_elbow_joint": 5e-2,
+        },
+    },
 }
 
 _GROUND_SNAP_SPECS = {
     "vt_human": {"geom_name_token": "foot", "clearance": 0.0},
+    "vt_human_v2": {"geom_name_token": "foot", "clearance": 0.0},
 }
 
 _QPOS_SMOOTHING_SPECS = {
     "vt_human": {
+        "alpha": 0.35,
+        "joints": (
+            "waist_yaw_joint",
+            "waist_pitch_joint",
+            "left_shoulder_pitch_joint",
+            "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "left_elbow_joint",
+            "right_shoulder_pitch_joint",
+            "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "right_elbow_joint",
+        ),
+    },
+    "vt_human_v2": {
         "alpha": 0.35,
         "joints": (
             "waist_yaw_joint",
