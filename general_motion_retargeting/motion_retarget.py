@@ -11,7 +11,29 @@ from rich import print
 
 _WAIST_REGULARIZER_SPECS = {
     "vt_human": {"joints": ("waist_yaw_joint", "waist_pitch_joint"), "cost": 20.0},
-    "vt_human_v2": {"joints": ("waist_yaw_joint", "waist_pitch_joint"), "cost": 20.0},
+    "vt_human_v2": {
+        "joints": (
+            "waist_yaw_joint", "waist_pitch_joint",
+            # Per-frame neutral-pose bias on the arms. Without an always-on
+            # posture pull (the global posture_task runs first-frame only), a
+            # left-arm IK branch flip during a get-up gets frozen by the
+            # prev_posture "stay-near-previous" term and never recovers
+            # (shoulder_roll locks near its +157 limit). A moderate cost here
+            # breaks that tie toward neutral every frame while the orientation
+            # tasks (cost 100) still drive the arm to follow the motion.
+            # NB: SHOULDER joints ONLY — the ELBOW is deliberately excluded.
+            # The VT elbow zero-pose is "forearm forward", so a natural hanging
+            # forearm needs ~50deg flexion; regularizing the elbow toward 0
+            # yanks the forearm forward (looks like a raised elbow). The
+            # flip/lock lives in the shoulder (roll→+157 limit), so the 3
+            # shoulder DOFs are enough to break it; the elbow stays free.
+            "left_shoulder_pitch_joint", "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "right_shoulder_pitch_joint", "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+        ),
+        "cost": 20.0,
+    },
 }
 
 _PREV_POSTURE_SMOOTHING_SPECS = {
