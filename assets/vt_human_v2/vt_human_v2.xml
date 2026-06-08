@@ -51,7 +51,7 @@
         <inertial pos="0.0125617 0.0569469 -0.0236546" quat="0.903925 0.41117 -0.117625 -0.00477622" mass="1.36296" diaginertia="0.00191632 0.00175385 0.00125078"/>
         <joint name="left_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.745 2.8793" actuatorfrcrange="-120 120" armature="0.0101775"/>
         <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="left_hip_pitch_link"/>
-        <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="left_hip_pitch_link"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="left_hip_pitch_link"/>
         <body name="left_hip_roll_link" pos="0.0052098 0.062252 -0.029546">
           <inertial pos="0.0154391 0.00026587 -0.0834664" quat="0.710037 -0.0522932 -0.0501596 0.700426" mass="2.02753" diaginertia="0.00494113 0.00448932 0.00331638"/>
           <joint name="left_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.43625 1.74533" actuatorfrcrange="-90 90" armature="0.0101775"/>
@@ -72,7 +72,7 @@
                 <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="0.0416185" diaginertia="4.24e-06 3.57e-06 2.55e-06"/>
                 <joint name="left_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.95975 0.61075" actuatorfrcrange="-70.5 70.5" armature="0.00721945"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="left_ankle_pitch_link"/>
-                <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="left_ankle_pitch_link"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="left_ankle_pitch_link"/>
                 <body name="left_ankle_roll_link">
                   <inertial pos="-0.00550341 0 -0.0285248" quat="1.19922e-05 0.72728 4.05271e-06 0.686341" mass="0.667902" diaginertia="0.0020583 0.00200653 0.000325888"/>
                   <joint name="left_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.43625 0.43625" actuatorfrcrange="-70.5 70.5" armature="0.00721945"/>
@@ -96,7 +96,7 @@
         <inertial pos="0.0125683 -0.056918 -0.0236958" quat="0.412094 0.903887 0.0119912 0.114122" mass="1.36295" diaginertia="0.00191659 0.00175365 0.00125086"/>
         <joint name="right_hip_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.745 2.8793" actuatorfrcrange="-120 120" armature="0.0101775"/>
         <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="right_hip_pitch_link"/>
-        <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="right_hip_pitch_link"/>
+        <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="right_hip_pitch_link"/>
         <body name="right_hip_roll_link" pos="0.0052098 -0.062252 -0.029546">
           <inertial pos="0.0153841 -0.00024058 -0.0835207" quat="0.699191 -0.0500302 -0.0525599 0.711243" mass="2.02592" diaginertia="0.00492787 0.00447574 0.0033132"/>
           <joint name="right_hip_roll_joint" pos="0 0 0" axis="1 0 0" range="-1.74533 0.43625" actuatorfrcrange="-90 90" armature="0.0101775"/>
@@ -117,7 +117,7 @@
                 <inertial pos="0 0 0" quat="0.5 0.5 -0.5 0.5" mass="0.0416185" diaginertia="4.24e-06 3.57e-06 2.55e-06"/>
                 <joint name="right_ankle_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.95975 0.61075" actuatorfrcrange="-70.5 70.5" armature="0.00721945"/>
                 <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="right_ankle_pitch_link"/>
-                <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="right_ankle_pitch_link"/>
+                <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.75294 0.75294 0.75294 1" mesh="right_ankle_pitch_link"/>
                 <body name="right_ankle_roll_link">
                   <inertial pos="-0.00550341 0 -0.0285248" quat="1.19922e-05 0.72728 4.05271e-06 0.686341" mass="0.667902" diaginertia="0.0020583 0.00200653 0.000325888"/>
                   <joint name="right_ankle_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.43625 0.43625" actuatorfrcrange="-70.5 70.5" armature="0.00721945"/>
@@ -202,4 +202,14 @@
       </body>
     </body>
   </worldbody>
+  <contact>
+    <!-- Exclude pelvis<->hip self-collisions (coarse volume proxies 2-3 joints
+         below base_link, outside MuJoCo auto parent-child filtering). Mirrors
+         the deploy MJCF and AMP_mjlab's vt_human_v2.xml. -->
+    <exclude body1="base_link" body2="left_hip_roll_link"/>
+    <exclude body1="base_link" body2="left_hip_yaw_link"/>
+    <exclude body1="base_link" body2="right_hip_roll_link"/>
+    <exclude body1="base_link" body2="right_hip_yaw_link"/>
+  </contact>
+
 </mujoco>
