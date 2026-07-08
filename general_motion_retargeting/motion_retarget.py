@@ -34,6 +34,20 @@ _WAIST_REGULARIZER_SPECS = {
         ),
         "cost": 20.0,
     },
+    # Pico teleop: the arm ORIENTATION targets fully constrain arm direction
+    # (no branch-flip ambiguity), and the recording has big overhead arm raises.
+    # The shoulder posture pull that AMASS get-up needs would cap the arms at
+    # ~horizontal here, so keep only the waist regularized.
+    "pico_xrt:vt_human_v2": {
+        "joints": (
+            "waist_yaw_joint", "waist_pitch_joint",
+            # light pull to keep the legs facing forward (knee/ankle/toe
+            # positions leave hip_yaw/roll weakly constrained on a straight leg).
+            "left_hip_yaw_joint", "right_hip_yaw_joint",
+            "left_hip_roll_joint", "right_hip_roll_joint",
+        ),
+        "cost": 12.0,
+    },
 }
 
 _PREV_POSTURE_SMOOTHING_SPECS = {
@@ -65,6 +79,15 @@ _PREV_POSTURE_SMOOTHING_SPECS = {
             "right_shoulder_roll_joint": 5e-2,
             "right_shoulder_yaw_joint": 5e-2,
             "right_elbow_joint": 5e-2,
+        },
+    },
+    # Pico teleop: relax the "stay near previous" pull on the arms so overhead
+    # raises aren't dragged back down; keep the waist smoothed.
+    "pico_xrt:vt_human_v2": {
+        "default_cost": 1e-3,
+        "joint_costs": {
+            "waist_yaw_joint": 1e-1,
+            "waist_pitch_joint": 1e-1,
         },
     },
 }
@@ -122,6 +145,7 @@ class GeneralMotionRetargeting:
         use_velocity_limit: bool=False,
     ) -> None:
         self.tgt_robot = tgt_robot
+        self.src_human = src_human
 
         # load the robot model
         self.xml_file = str(ROBOT_XML_DICT[tgt_robot])
@@ -276,9 +300,19 @@ class GeneralMotionRetargeting:
                         rot_weight
                     )
 
+    def _lookup_spec(self, specs):
+        """Per-robot spec, overridable per (src_human, tgt_robot).
+
+        A ``"<src_human>:<tgt_robot>"`` key wins over a plain ``"<tgt_robot>"``
+        key, so a data source can tune the posture/smoothing tables without
+        touching the shared per-robot defaults (e.g. Pico teleop relaxes the
+        shoulder posture pull that AMASS get-up needs).
+        """
+        return specs.get(f"{self.src_human}:{self.tgt_robot}", specs.get(self.tgt_robot))
+
     def _build_waist_regularizer_task(self):
         """Per-DOF posture task that pins regularizer joints to default qpos."""
-        spec = _WAIST_REGULARIZER_SPECS.get(self.tgt_robot)
+        spec = self._lookup_spec(_WAIST_REGULARIZER_SPECS)
         if spec is None:
             return None
 
@@ -303,7 +337,7 @@ class GeneralMotionRetargeting:
         return task
 
     def _build_prev_posture_cost(self):
-        spec = _PREV_POSTURE_SMOOTHING_SPECS.get(self.tgt_robot)
+        spec = self._lookup_spec(_PREV_POSTURE_SMOOTHING_SPECS)
         if spec is None:
             return 1e-3
 
@@ -324,7 +358,7 @@ class GeneralMotionRetargeting:
 
     def _build_ground_snap(self):
         """Returns (geom_ids, clearance) for foot-snapping; ([], 0.0) if disabled."""
-        spec = _GROUND_SNAP_SPECS.get(self.tgt_robot)
+        spec = self._lookup_spec(_GROUND_SNAP_SPECS)
         if spec is None:
             return [], 0.0
 
@@ -338,7 +372,7 @@ class GeneralMotionRetargeting:
         return geom_ids, float(spec["clearance"])
 
     def _build_qpos_smoothing_spec(self):
-        spec = _QPOS_SMOOTHING_SPECS.get(self.tgt_robot)
+        spec = self._lookup_spec(_QPOS_SMOOTHING_SPECS)
         if spec is None:
             return None, ()
 

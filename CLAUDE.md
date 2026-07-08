@@ -55,7 +55,37 @@ python scripts/smplx_to_robot.py --smplx_file <path> --robot <robot_name> --save
 
 # BVH to robot  
 python scripts/bvh_to_robot.py --bvh_file <path> --robot <robot_name> --save_path <output.pkl>
+
+# Pico XR-Toolkit teleop recording (xrobot_*.jsonl) to vt_human_v2
+python scripts/pico_to_robot.py --pico_file <xrobot_*.jsonl> --robot vt_human_v2 \
+    --tgt_fps 30 --save_path <output.pkl>
 ```
+
+**Pico XRT source (`src_human="pico_xrt"`)**: loader `utils/pico_xrt.py`, config
+`ik_configs/pico_xrt_to_vt_human_v2.json`. Pico's per-joint POSITIONS are
+reliable but its per-joint ORIENTATION quaternions drift (the raw pelvis quat
+pitches tens of degrees over a take while the subject stays upright), so nothing
+uses those quaternions — every target is reconstructed from positions:
+- base_link = pelvis position + yaw-only reconstructed heading (base upright);
+- waist_pitch_link = a reconstructed CHEST orientation (up = pelvis->spine3,
+  left = R_sh->L_sh) at high rot cost, so the waist tracks the real torso and
+  the downstream arm targets can't bend it (they otherwise hijack the waist);
+- legs = knee/ankle/toe POSITIONS + flat-foot orientation. NOT orientation on
+  hip/knee: a standing leg is straight so its knee-bend plane is degenerate and
+  the reconstructed twist axis is noise (spins hip_yaw). A light hip_yaw/roll
+  regularizer keeps the legs forward-facing.
+- arms = DIRECTION only (upper-arm shoulder->elbow, forearm elbow->wrist frames
+  via `limb_frames`), because a single position scale can't match both the
+  shoulder location and the ~2x shorter robot arm; orientation-only so a 4-DOF
+  wristless arm follows the gesture (incl. overhead raises) without dragging the
+  torso.
+The shoulder posture regularizer and prev-posture pull are RELAXED for this
+source (`motion_retarget.py` keys `"pico_xrt:vt_human_v2"` via `_lookup_spec`) —
+the AMASS get-up defaults would otherwise cap the arms at ~horizontal.
+Do NOT round-trip Pico through SMPL FK (the online teleop node does; it drifts,
+and the pico->SMPL arm conversion flips raised arms downward). NB: measure torso
+lean with the waist_pitch JOINT angle, not the waist_pitch_link position (which
+barely moves as the joint bends).
 
 ### Batch Processing
 ```bash
