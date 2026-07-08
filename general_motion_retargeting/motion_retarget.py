@@ -254,7 +254,7 @@ class GeneralMotionRetargeting:
 
         for frame_name, entry in self.ik_match_table1.items():
             body_name, pos_weight, rot_weight, pos_offset, rot_offset = entry
-            if pos_weight != 0 or rot_weight != 0:
+            if self._is_nonzero_cost(pos_weight) or self._is_nonzero_cost(rot_weight):
                 task = mink.FrameTask(
                     frame_name=frame_name,
                     frame_type="body",
@@ -272,13 +272,13 @@ class GeneralMotionRetargeting:
                 self.tasks1.append(task)
                 self.task_errors1[task] = []
                 if self._is_arm_body(body_name):
-                    self._arm_task_original_orientation_costs[task] = float(
-                        rot_weight
+                    self._arm_task_original_orientation_costs[task] = np.atleast_1d(
+                        np.asarray(rot_weight, dtype=float)
                     )
 
         for frame_name, entry in self.ik_match_table2.items():
             body_name, pos_weight, rot_weight, pos_offset, rot_offset = entry
-            if pos_weight != 0 or rot_weight != 0:
+            if self._is_nonzero_cost(pos_weight) or self._is_nonzero_cost(rot_weight):
                 task = mink.FrameTask(
                     frame_name=frame_name,
                     frame_type="body",
@@ -296,9 +296,13 @@ class GeneralMotionRetargeting:
                 self.tasks2.append(task)
                 self.task_errors2[task] = []
                 if self._is_arm_body(body_name):
-                    self._arm_task_original_orientation_costs[task] = float(
-                        rot_weight
+                    self._arm_task_original_orientation_costs[task] = np.atleast_1d(
+                        np.asarray(rot_weight, dtype=float)
                     )
+
+    @staticmethod
+    def _is_nonzero_cost(cost):
+        return bool(np.any(np.asarray(cost, dtype=float) != 0.0))
 
     def _lookup_spec(self, specs):
         """Per-robot spec, overridable per (src_human, tgt_robot).
@@ -455,8 +459,15 @@ class GeneralMotionRetargeting:
         for task, original_orientation_cost in (
             self._arm_task_original_orientation_costs.items()
         ):
-            if enabled and original_orientation_cost > 0.0:
-                orientation_cost = self._first_frame_arm_orientation_cost
+            if enabled and np.any(original_orientation_cost > 0.0):
+                orientation_cost = np.where(
+                    original_orientation_cost > 0.0,
+                    np.minimum(
+                        original_orientation_cost,
+                        self._first_frame_arm_orientation_cost,
+                    ),
+                    0.0,
+                )
             else:
                 orientation_cost = original_orientation_cost
             task.set_orientation_cost(orientation_cost)

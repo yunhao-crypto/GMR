@@ -130,6 +130,18 @@ def _unit_or(v, fallback):
     return v / n if n > 1e-8 else fallback
 
 
+def _any_perp(v):
+    """Return a deterministic unit vector perpendicular to ``v``."""
+    v = _unit_or(v, np.array([1.0, 0.0, 0.0]))
+    axes = (
+        np.array([1.0, 0.0, 0.0]),
+        np.array([0.0, 1.0, 0.0]),
+        np.array([0.0, 0.0, 1.0]),
+    )
+    ref = min(axes, key=lambda axis: abs(float(np.dot(v, axis))))
+    return _unit_or(np.cross(v, ref), np.array([0.0, 1.0, 0.0]))
+
+
 def reconstruct_chest_quat(positions):
     """Chest/torso global orientation (wxyz) from reliable joint POSITIONS.
 
@@ -149,23 +161,67 @@ def reconstruct_chest_quat(positions):
     return R.from_matrix(mat).as_quat(scalar_first=True)
 
 
-def limb_frames(proximal, mid, distal):
+def limb_frames(
+    proximal,
+    mid,
+    distal,
+    prev_n=None,
+    *,
+    lock_deg=8.0,
+    trust_deg=25.0,
+    return_normal=False,
+):
     """(T_proximal, T_mid) 3x3 rotation matrices from a 3-joint limb chain.
 
     Works for an arm (shoulder, elbow, wrist) or a leg (hip, knee, ankle):
       T_proximal x-axis = proximal-segment direction (proximal->mid);
       T_mid      x-axis = distal-segment direction   (mid->distal);
       shared z-axis     = joint-bend-plane normal (proximal_seg x distal_seg).
-    Robust to a straight (degenerate-plane) limb.
+    Robust to a straight (degenerate-plane) limb when ``prev_n`` is supplied.
+
+    Pico arms are frequently nearly straight during reaches. In that regime
+    ``proximal_seg x distal_seg`` has a small magnitude, so position noise can
+    flip the measured bend-plane normal by ~180 deg. For near-straight limbs we
+    carry the previous normal, parallel-transported onto the current upper-arm
+    normal plane. For clearly bent limbs we trust the measured normal including
+    its sign, so genuine elbow-side changes are still allowed.
     """
     a = _unit_or(mid - proximal, np.array([0.0, 0.0, -1.0]))
     b = _unit_or(distal - mid, a)
-    n = _unit_or(np.cross(a, b), None)
-    if n is None:  # straight limb: any axis perpendicular to the proximal seg
-        n = _unit_or(np.cross(a, np.array([0.0, 0.0, 1.0])), np.array([0.0, 1.0, 0.0]))
+    cr = np.cross(a, b)
+    s = np.linalg.norm(cr)  # sin(elbow bend angle)
+    n_meas = cr / s if s > 1e-8 else None
+
+    n_carry = None
+    if prev_n is not None:
+        prev_n = _unit_or(np.asarray(prev_n, dtype=np.float64), None)
+        if prev_n is not None:
+            n_carry = _unit_or(prev_n - np.dot(prev_n, a) * a, None)
+    if n_carry is None:
+        n_carry = _any_perp(a)
+
+    if n_meas is None:
+        n = n_carry
+    else:
+        lock_s = np.sin(np.deg2rad(lock_deg))
+        trust_s = np.sin(np.deg2rad(trust_deg))
+        if s <= lock_s:
+            n = n_carry
+        elif s >= trust_s:
+            n = n_meas
+        else:
+            # Only align signs in the ambiguous blend region. Once the elbow is
+            # clearly bent, the measured sign is trusted.
+            if np.dot(n_meas, n_carry) < 0.0:
+                n_meas = -n_meas
+            w = (s - lock_s) / max(trust_s - lock_s, 1e-8)
+            n = _unit_or((1.0 - w) * n_carry + w * n_meas, n_carry)
     y_a = _unit_or(np.cross(n, a), np.array([0.0, 1.0, 0.0]))
     y_b = _unit_or(np.cross(n, b), np.array([0.0, 1.0, 0.0]))
-    return np.stack([a, y_a, n], axis=1), np.stack([b, y_b, n], axis=1)
+    result = np.stack([a, y_a, n], axis=1), np.stack([b, y_b, n], axis=1)
+    if return_normal:
+        return result[0], result[1], n
+    return result
 
 
 # Back-compat alias (arms are just a limb chain).
@@ -181,9 +237,12 @@ def foot_frame(ankle, toe):
     return np.stack([fwd, left, _WORLD_UP], axis=1)
 
 
-def _positions_to_frame(positions, prev_pelvis_quat):
+def _positions_to_frame(positions, prev_pelvis_quat, prev_arm_normals=None):
     def q(mat):
         return R.from_matrix(mat).as_quat(scalar_first=True)
+
+    if prev_arm_normals is None:
+        prev_arm_normals = {}
 
     pelvis_quat = reconstruct_pelvis_quat(positions, prev_pelvis_quat)
     frame = {
@@ -199,13 +258,17 @@ def _positions_to_frame(positions, prev_pelvis_quat):
         # is the flat-foot frame.
         frame[foot_name] = [positions[_JI[toe_j]].astype(np.float64),
                             q(foot_frame(positions[_JI[ankle_j]], positions[_JI[toe_j]]))]
+    arm_normals = {}
     for prox_name, mid_name, (p_j, m_j, d_j) in _ARM_CHAINS:
-        t_prox, t_mid = limb_frames(
-            positions[_JI[p_j]], positions[_JI[m_j]], positions[_JI[d_j]]
+        t_prox, t_mid, n = limb_frames(
+            positions[_JI[p_j]], positions[_JI[m_j]], positions[_JI[d_j]],
+            prev_n=prev_arm_normals.get(prox_name),
+            return_normal=True,
         )
+        arm_normals[prox_name] = n
         frame[prox_name] = [positions[_JI[p_j]].astype(np.float64), q(t_prox)]
         frame[mid_name] = [positions[_JI[m_j]].astype(np.float64), q(t_mid)]
-    return frame, pelvis_quat
+    return frame, pelvis_quat, arm_normals
 
 
 def _resample_positions(positions, timestamps_s, tgt_fps):
@@ -276,8 +339,11 @@ def load_pico_xrt_file(jsonl_file, tgt_fps=None):
 
     frames = []
     prev_pelvis_quat = None
+    prev_arm_normals = {}
     for k in range(len(positions)):
-        frame, prev_pelvis_quat = _positions_to_frame(positions[k], prev_pelvis_quat)
+        frame, prev_pelvis_quat, prev_arm_normals = _positions_to_frame(
+            positions[k], prev_pelvis_quat, prev_arm_normals
+        )
         frames.append(frame)
 
     return frames, human_height, fps

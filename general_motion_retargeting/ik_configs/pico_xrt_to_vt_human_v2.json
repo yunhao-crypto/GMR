@@ -156,7 +156,11 @@
         "left_shoulder_yaw_link": [
             "left_shoulder",
             0,
-            40,
+            [
+                40,
+                40,
+                0
+            ],
             [
                 0,
                 0,
@@ -172,7 +176,11 @@
         "right_shoulder_yaw_link": [
             "right_shoulder",
             0,
-            40,
+            [
+                40,
+                40,
+                0
+            ],
             [
                 0,
                 0,
@@ -188,7 +196,11 @@
         "left_elbow_link": [
             "left_elbow",
             0,
-            30,
+            [
+                0,
+                30,
+                30
+            ],
             [
                 0,
                 0,
@@ -204,7 +216,11 @@
         "right_elbow_link": [
             "right_elbow",
             0,
-            30,
+            [
+                0,
+                30,
+                30
+            ],
             [
                 0,
                 0,
@@ -350,7 +366,11 @@
         "left_shoulder_yaw_link": [
             "left_shoulder",
             0,
-            40,
+            [
+                40,
+                40,
+                0
+            ],
             [
                 0,
                 0,
@@ -366,7 +386,11 @@
         "right_shoulder_yaw_link": [
             "right_shoulder",
             0,
-            40,
+            [
+                40,
+                40,
+                0
+            ],
             [
                 0,
                 0,
@@ -382,7 +406,11 @@
         "left_elbow_link": [
             "left_elbow",
             0,
-            30,
+            [
+                0,
+                30,
+                30
+            ],
             [
                 0,
                 0,
@@ -398,7 +426,11 @@
         "right_elbow_link": [
             "right_elbow",
             0,
-            30,
+            [
+                0,
+                30,
+                30
+            ],
             [
                 0,
                 0,
