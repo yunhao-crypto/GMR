@@ -22,6 +22,7 @@ from rich import print
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from general_motion_retargeting import RobotMotionViewer
 from general_motion_retargeting.utils.pico_xrt import load_pico_xrt_file
+from general_motion_retargeting.utils.pico_xrobot import load_pico_xrobot_file
 from general_motion_retargeting.reference_postprocess import (
     has_sequence_postprocess,
     postprocess_qpos_sequence,
@@ -33,6 +34,15 @@ def main():
     parser.add_argument("--pico_file", type=str, required=True,
                         help="Pico XRT recording (xrobot_*.jsonl).")
     parser.add_argument("--robot", choices=["vt_human_v2"], default="vt_human_v2")
+    parser.add_argument(
+        "--source",
+        choices=["pico_xrt", "pico_xrobot"],
+        default="pico_xrt",
+        help="GMR source/input semantics to use.",
+    )
+    parser.add_argument("--xrobot_coordinate_mode", choices=["stored", "unity"], default="stored",
+                        help="For --source pico_xrobot: keep stored jsonl coordinates or apply "
+                             "TWIST2/XRobotStreamer Unity->right-handed conversion.")
     parser.add_argument("--tgt_fps", type=int, default=30,
                         help="Resample the capture to this fps (0 = keep native).")
     parser.add_argument("--save_path", default=None, help="Output motion .pkl.")
@@ -47,12 +57,22 @@ def main():
     args = parser.parse_args()
 
     tgt_fps = None if args.tgt_fps in (0, None) else args.tgt_fps
-    frames, human_height, fps = load_pico_xrt_file(args.pico_file, tgt_fps=tgt_fps)
-    print(f"[pico] loaded {len(frames)} frames @ {fps:.2f} fps, human_height={human_height:.2f} m")
+    if args.source == "pico_xrobot":
+        frames, human_height, fps = load_pico_xrobot_file(
+            args.pico_file,
+            tgt_fps=tgt_fps,
+            coordinate_mode=args.xrobot_coordinate_mode,
+        )
+    else:
+        frames, human_height, fps = load_pico_xrt_file(args.pico_file, tgt_fps=tgt_fps)
+    print(
+        f"[pico] loaded {len(frames)} frames @ {fps:.2f} fps, "
+        f"human_height={human_height:.2f} m, source={args.source}"
+    )
 
     retarget = GMR(
         actual_human_height=human_height,
-        src_human="pico_xrt",
+        src_human=args.source,
         tgt_robot=args.robot,
     )
 

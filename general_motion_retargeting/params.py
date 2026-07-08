@@ -66,6 +66,9 @@ IK_CONFIG_DICT = {
     "pico_xrt":{
         "vt_human_v2": IK_CONFIG_ROOT / "pico_xrt_to_vt_human_v2.json",
     },
+    "pico_xrobot":{
+        "vt_human_v2": IK_CONFIG_ROOT / "pico_xrobot_to_vt_human_v2.json",
+    },
     "fbx":{
         "unitree_g1": IK_CONFIG_ROOT / "fbx_to_g1.json",
         "unitree_g1_with_hands": IK_CONFIG_ROOT / "fbx_to_g1.json",
