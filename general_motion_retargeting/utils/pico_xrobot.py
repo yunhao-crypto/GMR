@@ -16,7 +16,7 @@ import numpy as np
 from scipy.spatial.transform import Rotation as R, Slerp
 
 from ..rot_utils import quat_mul_np
-from .pico_xrt import PICO_JOINT_ORDER
+from .pico_xrt import PICO_JOINT_ORDER, _positions_to_frame
 
 
 _DEFAULT_HUMAN_HEIGHT = 1.6
@@ -31,6 +31,20 @@ _UNITY_TO_XROBOT = np.array(
 _UNITY_TO_XROBOT_QUAT = R.from_matrix(_UNITY_TO_XROBOT).as_quat(
     scalar_first=True
 )
+_XRT_FRAME_TO_XROBOT_FRAME = {
+    "pelvis": "Pelvis",
+    "spine3": "Spine3",
+    "left_knee": "Left_Knee",
+    "right_knee": "Right_Knee",
+    "left_ankle": "Left_Ankle",
+    "right_ankle": "Right_Ankle",
+    "left_foot": "Left_Foot",
+    "right_foot": "Right_Foot",
+    "left_shoulder": "Left_Shoulder",
+    "right_shoulder": "Right_Shoulder",
+    "left_elbow": "Left_Elbow",
+    "right_elbow": "Right_Elbow",
+}
 
 
 def coordinate_transform_unity_data(frame):
@@ -47,6 +61,35 @@ def coordinate_transform_unity_data(frame):
         position = np.array([x, y, z], dtype=np.float64) @ _UNITY_TO_XROBOT.T
         out[body_name] = [position, orientation]
     return out
+
+
+def body_data_to_pico_xrobot_frame(
+    body_data,
+    prev_pelvis_quat=None,
+    prev_arm_normals=None,
+):
+    """Convert XRobot/Pico body data into position-reconstructed GMR targets.
+
+    The live XRobot/TWIST2 path provides Pico body names and global poses. Pico's
+    raw joint quaternions are not stable robot body-frame targets for
+    ``vt_human_v2``, so this mirrors the ``pico_xrt`` path: only joint positions
+    are used to reconstruct pelvis, torso, limbs, and feet. Names stay in the
+    XRobot/Pico convention (``"Pelvis"``, ``"Left_Elbow"``, ...).
+    """
+    positions = np.asarray(
+        [body_data[name][0] for name in PICO_JOINT_ORDER],
+        dtype=np.float64,
+    )
+    frame, pelvis_quat, arm_normals = _positions_to_frame(
+        positions,
+        prev_pelvis_quat,
+        prev_arm_normals,
+    )
+    xrobot_frame = {
+        _XRT_FRAME_TO_XROBOT_FRAME[name]: value
+        for name, value in frame.items()
+    }
+    return xrobot_frame, pelvis_quat, arm_normals
 
 
 def _read_arrays(jsonl_file):
@@ -136,8 +179,10 @@ def _resample(positions, quats_xyzw, timestamps_s, tgt_fps):
     return pos_out, quat_out, float(tgt_fps)
 
 
-def _arrays_to_frames(positions, quats_xyzw, coordinate_mode):
+def _arrays_to_frames(positions, quats_xyzw, coordinate_mode, frame_mode):
     frames = []
+    prev_pelvis_quat = None
+    prev_arm_normals = {}
     for frame_idx in range(len(positions)):
         frame = {}
         for joint_idx, name in enumerate(PICO_JOINT_ORDER):
@@ -153,11 +198,26 @@ def _arrays_to_frames(positions, quats_xyzw, coordinate_mode):
                 "coordinate_mode must be 'stored' or 'unity', "
                 f"got {coordinate_mode!r}"
             )
-        frames.append(frame)
+        if frame_mode == "raw":
+            frames.append(frame)
+        elif frame_mode == "position":
+            frame, prev_pelvis_quat, prev_arm_normals = body_data_to_pico_xrobot_frame(
+                frame,
+                prev_pelvis_quat,
+                prev_arm_normals,
+            )
+            frames.append(frame)
+        else:
+            raise ValueError(f"frame_mode must be 'position' or 'raw', got {frame_mode!r}")
     return frames
 
 
-def load_pico_xrobot_file(jsonl_file, tgt_fps=None, coordinate_mode="stored"):
+def load_pico_xrobot_file(
+    jsonl_file,
+    tgt_fps=None,
+    coordinate_mode="stored",
+    frame_mode="position",
+):
     """Load a Pico jsonl as TWIST2/XRobot-style GMR frames.
 
     Args:
@@ -165,6 +225,8 @@ def load_pico_xrobot_file(jsonl_file, tgt_fps=None, coordinate_mode="stored"):
         tgt_fps: optional resampling fps.
         coordinate_mode: ``"stored"`` for already-transformed recordings,
             ``"unity"`` to apply upstream XRobotStreamer's Unity conversion.
+        frame_mode: ``"position"`` reconstructs stable GMR targets from joint
+            positions; ``"raw"`` passes XRobot global quaternions through.
 
     Returns:
         ``(frames, human_height, fps)`` where each frame uses Pico/XRobot body
@@ -174,5 +236,5 @@ def load_pico_xrobot_file(jsonl_file, tgt_fps=None, coordinate_mode="stored"):
     positions, quats_xyzw, fps = _resample(
         positions, quats_xyzw, timestamps_s, tgt_fps
     )
-    frames = _arrays_to_frames(positions, quats_xyzw, coordinate_mode)
+    frames = _arrays_to_frames(positions, quats_xyzw, coordinate_mode, frame_mode)
     return frames, human_height, fps

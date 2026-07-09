@@ -13,6 +13,7 @@ from rich import print
 
 from general_motion_retargeting import GeneralMotionRetargeting as GMR
 from general_motion_retargeting import RobotMotionViewer
+from general_motion_retargeting.utils.pico_xrobot import body_data_to_pico_xrobot_frame
 from general_motion_retargeting.utils.xrobot_streamer import XRobotStreamer
 
 
@@ -60,6 +61,8 @@ def main() -> None:
 
     frames = 0
     no_body = 0
+    prev_pelvis_quat = None
+    prev_arm_normals = None
     last_log = time.time()
 
     try:
@@ -79,7 +82,12 @@ def main() -> None:
                 time.sleep(0.02)
                 continue
 
-            qpos = retargeter.retarget(body_data, offset_to_ground=False)
+            frame, prev_pelvis_quat, prev_arm_normals = body_data_to_pico_xrobot_frame(
+                body_data,
+                prev_pelvis_quat,
+                prev_arm_normals,
+            )
+            qpos = retargeter.retarget(frame, offset_to_ground=False)
             frames += 1
 
             if record_file is not None:
@@ -90,6 +98,7 @@ def main() -> None:
                             "robot": args.robot,
                             "actual_human_height": args.actual_human_height,
                             "body_data": _jsonable_body_data(body_data),
+                            "frame_mode": "position",
                             "qpos_pico_xrobot_wxyz": qpos.tolist(),
                         }
                     )

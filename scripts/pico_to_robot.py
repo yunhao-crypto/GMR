@@ -43,6 +43,9 @@ def main():
     parser.add_argument("--xrobot_coordinate_mode", choices=["stored", "unity"], default="stored",
                         help="For --source pico_xrobot: keep stored jsonl coordinates or apply "
                              "TWIST2/XRobotStreamer Unity->right-handed conversion.")
+    parser.add_argument("--xrobot_frame_mode", choices=["position", "raw"], default="position",
+                        help="For --source pico_xrobot: reconstruct stable targets from positions "
+                             "or pass raw XRobot quaternions through.")
     parser.add_argument("--tgt_fps", type=int, default=30,
                         help="Resample the capture to this fps (0 = keep native).")
     parser.add_argument("--save_path", default=None, help="Output motion .pkl.")
@@ -62,6 +65,7 @@ def main():
             args.pico_file,
             tgt_fps=tgt_fps,
             coordinate_mode=args.xrobot_coordinate_mode,
+            frame_mode=args.xrobot_frame_mode,
         )
     else:
         frames, human_height, fps = load_pico_xrt_file(args.pico_file, tgt_fps=tgt_fps)
