@@ -19,7 +19,9 @@ from general_motion_retargeting.utils.aorta_lowcmd_publisher import (
     DEFAULT_TOPIC as DEFAULT_AORTA_TOPIC,
     LOWCMD_LAYOUTS,
 )
-from general_motion_retargeting.utils.pico_xrobot import body_data_to_pico_xrobot_frame
+from general_motion_retargeting.utils.pico_xrobot import (
+    body_data_to_pico_xrobot_frame,
+)
 from general_motion_retargeting.utils.xrobot_streamer import XRobotStreamer
 
 
@@ -55,13 +57,16 @@ def main() -> None:
                         help="LowCmd slot layout; extended44 reserves wrist/finger/head slots.")
     parser.add_argument("--aorta-wait-ms", type=int, default=500,
                         help="Wait for a matching Aorta subscriber before streaming.")
+    parser.add_argument("--src-human", choices=["pico_xrobot", "xrobot"],
+                        default="xrobot",
+                        help="Retarget source semantics. xrobot uses calibrated raw XRobot orientation offsets.")
     args = parser.parse_args()
 
     print("[live-xrobot] initializing XRobotStreamer")
     streamer = XRobotStreamer()
-    print("[live-xrobot] initializing GMR pico_xrobot -> vt_human_v2")
+    print(f"[live-xrobot] initializing GMR {args.src_human} -> vt_human_v2")
     retargeter = GMR(
-        src_human="pico_xrobot",
+        src_human=args.src_human,
         tgt_robot=args.robot,
         actual_human_height=args.actual_human_height,
     )
@@ -115,11 +120,14 @@ def main() -> None:
                 time.sleep(0.02)
                 continue
 
-            frame, prev_pelvis_quat, prev_arm_normals = body_data_to_pico_xrobot_frame(
-                body_data,
-                prev_pelvis_quat,
-                prev_arm_normals,
-            )
+            if args.src_human == "xrobot":
+                frame = body_data
+            else:
+                frame, prev_pelvis_quat, prev_arm_normals = body_data_to_pico_xrobot_frame(
+                    body_data,
+                    prev_pelvis_quat,
+                    prev_arm_normals,
+                )
             qpos = retargeter.retarget(frame, offset_to_ground=False)
             frames += 1
 

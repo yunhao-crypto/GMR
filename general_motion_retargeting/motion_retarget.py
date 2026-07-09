@@ -48,6 +48,30 @@ _WAIST_REGULARIZER_SPECS = {
         ),
         "cost": 12.0,
     },
+    "pico_xrobot:vt_human_v2": {
+        "joints": (
+            "waist_yaw_joint", "waist_pitch_joint",
+            "left_hip_yaw_joint", "right_hip_yaw_joint",
+            "left_hip_roll_joint", "right_hip_roll_joint",
+        ),
+        "cost": 12.0,
+    },
+    "xrobot:vt_human_v2": {
+        "joints": (
+            "waist_yaw_joint", "waist_pitch_joint",
+            "left_hip_yaw_joint", "right_hip_yaw_joint",
+            "left_hip_roll_joint", "right_hip_roll_joint",
+        ),
+        "cost": 12.0,
+        "joint_costs": {
+            "left_shoulder_pitch_joint": 2.0,
+            "left_shoulder_roll_joint": 2.0,
+            "left_shoulder_yaw_joint": 2.0,
+            "right_shoulder_pitch_joint": 2.0,
+            "right_shoulder_roll_joint": 2.0,
+            "right_shoulder_yaw_joint": 2.0,
+        },
+    },
 }
 
 _PREV_POSTURE_SMOOTHING_SPECS = {
@@ -90,6 +114,20 @@ _PREV_POSTURE_SMOOTHING_SPECS = {
             "waist_pitch_joint": 1e-1,
         },
     },
+    "pico_xrobot:vt_human_v2": {
+        "default_cost": 1e-3,
+        "joint_costs": {
+            "waist_yaw_joint": 1e-1,
+            "waist_pitch_joint": 1e-1,
+        },
+    },
+    "xrobot:vt_human_v2": {
+        "default_cost": 1e-3,
+        "joint_costs": {
+            "waist_yaw_joint": 1e-1,
+            "waist_pitch_joint": 1e-1,
+        },
+    },
 }
 
 _GROUND_SNAP_SPECS = {
@@ -126,6 +164,20 @@ _QPOS_SMOOTHING_SPECS = {
             "right_shoulder_roll_joint",
             "right_shoulder_yaw_joint",
             "right_elbow_joint",
+        ),
+    },
+    "pico_xrobot:vt_human_v2": {
+        "alpha": 0.35,
+        "joints": (
+            "waist_yaw_joint",
+            "waist_pitch_joint",
+        ),
+    },
+    "xrobot:vt_human_v2": {
+        "alpha": 0.35,
+        "joints": (
+            "waist_yaw_joint",
+            "waist_pitch_joint",
         ),
     },
 }
@@ -328,6 +380,12 @@ class GeneralMotionRetargeting:
                 missing.append(joint_name)
             else:
                 cost_vec[dof_idx] = spec["cost"]
+        for joint_name, joint_cost in spec.get("joint_costs", {}).items():
+            dof_idx = self.robot_dof_names.get(joint_name)
+            if dof_idx is None:
+                missing.append(joint_name)
+            else:
+                cost_vec[dof_idx] = float(joint_cost)
 
         if missing:
             print(

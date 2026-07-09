@@ -45,6 +45,8 @@ _XRT_FRAME_TO_XROBOT_FRAME = {
     "left_elbow": "Left_Elbow",
     "right_elbow": "Right_Elbow",
 }
+_PICO_INDEX_BY_NAME = {name: idx for idx, name in enumerate(PICO_JOINT_ORDER)}
+_IDENTITY_WXYZ = np.array([1.0, 0.0, 0.0, 0.0], dtype=np.float64)
 
 
 def coordinate_transform_unity_data(frame):
@@ -89,6 +91,14 @@ def body_data_to_pico_xrobot_frame(
         _XRT_FRAME_TO_XROBOT_FRAME[name]: value
         for name, value in frame.items()
     }
+    # Keep wrist positions as end-effector targets for robots that expose a
+    # wrist task body. Orientation is intentionally identity because Pico wrist
+    # quaternions are not stable enough for IK targets in this path.
+    for wrist_name in ("Left_Wrist", "Right_Wrist"):
+        xrobot_frame[wrist_name] = [
+            positions[_PICO_INDEX_BY_NAME[wrist_name]].astype(np.float64),
+            _IDENTITY_WXYZ.copy(),
+        ]
     return xrobot_frame, pelvis_quat, arm_normals
 
 

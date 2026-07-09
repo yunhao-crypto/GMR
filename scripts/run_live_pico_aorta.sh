@@ -13,6 +13,7 @@ ROBOT_IP=""
 ROBOT_PORT="7447"
 AORTA_TOPIC="/locomotion/external_command"
 LOWCMD_LAYOUT="extended44"
+SRC_HUMAN="xrobot"
 ROBOT="vt_human_v2"
 ACTUAL_HUMAN_HEIGHT="1.6"
 FPS="30.0"
@@ -101,6 +102,7 @@ Options:
   --aorta-group GROUP         Export AORTA_GROUP. Default: ${AORTA_GROUP_VALUE}
   --aorta-topic TOPIC         Aorta LowCmd topic. Default: ${AORTA_TOPIC}
   --lowcmd-layout NAME        LowCmd layout: extended44 or legacy22. Default: ${LOWCMD_LAYOUT}
+  --src-human NAME            Retarget source: xrobot or pico_xrobot. Default: ${SRC_HUMAN}
   --robot NAME                Robot model. Default: ${ROBOT}
   --actual-human-height M     Human height for GMR scaling. Default: ${ACTUAL_HUMAN_HEIGHT}
   --fps FPS                   Viewer/render loop FPS. Default: ${FPS}
@@ -169,6 +171,11 @@ while [[ $# -gt 0 ]]; do
     --lowcmd-layout)
       LOWCMD_LAYOUT="${2:-}"
       [[ -n "${LOWCMD_LAYOUT}" ]] || die "--lowcmd-layout requires a value"
+      shift 2
+      ;;
+    --src-human)
+      SRC_HUMAN="${2:-}"
+      [[ -n "${SRC_HUMAN}" ]] || die "--src-human requires a value"
       shift 2
       ;;
     --robot)
@@ -338,6 +345,14 @@ case "${LOWCMD_LAYOUT}" in
     ;;
 esac
 
+case "${SRC_HUMAN}" in
+  xrobot|pico_xrobot)
+    ;;
+  *)
+    die "--src-human must be xrobot or pico_xrobot"
+    ;;
+esac
+
 if [[ "${CHECK_ENV}" -eq 1 ]]; then
   log "checking Python imports"
   python - <<'PY'
@@ -383,6 +398,7 @@ cmd=(
   --aorta-topic "${AORTA_TOPIC}"
   --aorta-group "${AORTA_GROUP}"
   --lowcmd-layout "${LOWCMD_LAYOUT}"
+  --src-human "${SRC_HUMAN}"
 )
 
 if [[ -n "${RECORD_PATH}" ]]; then
