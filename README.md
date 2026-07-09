@@ -198,6 +198,44 @@ explicitly:
 ./scripts/install_gmr_env.sh --pico-sdk-path /path/to/xrobotoolkit_sdk.whl
 ```
 
+The installer also installs the Aorta Python SDK/message wheels used by the
+live Pico -> `/locomotion/external_command` publisher. If the GitHub release is
+private or you are offline, pass the downloaded wheels explicitly:
+
+```bash
+./scripts/install_gmr_env.sh \
+  --aorta-sdk-wheel /path/to/aorta_sdk-2026.7.9-py3-none-linux_x86_64.whl \
+  --aorta-msgs-wheel /path/to/aorta_msgs-2026.7.9-py3-none-any.whl
+```
+
+To stream live Pico retargeting over Aorta:
+
+```bash
+./scripts/run_live_pico_aorta.sh \
+  --robot-sn 80100090026FF100001 \
+  --robot-ip 10.100.23.163
+```
+
+The launcher activates the `gmr` conda environment, exports `AORTA_GROUP`,
+exports `ZENOH_SESSION_CONFIG_URI`, checks the Pico and Aorta Python imports,
+and starts `live_pico_xrobot_viewer.py --publish-aorta`. By default it uses
+`config/dev_machine_to_bot.json5`; `--robot-sn` overrides the Zenoh `namespace`,
+and `--robot-ip` overrides `connect.endpoints` as `tcp/<ip>:7447`. Use
+`--robot-endpoint tcp/<ip>:<port>` for a non-default port, or
+`--zenoh-config /path/to/config.json5` to use another template.
+Use the same `AORTA_GROUP` and Zenoh session settings as the locomotion process.
+By default the Aorta publisher sends the `extended44` LowCmd layout: current
+retargeted VT_HUMAN_V2 joints are filled by name, and reserved wrist, finger,
+head, `head_roll_joint`, and `waist_roll_joint` slots are published as zero.
+Use `--lowcmd-layout legacy22` only when testing against an older consumer that
+must receive exactly the current 22 slots.
+
+Extra viewer arguments can be passed after `--`, for example:
+
+```bash
+./scripts/run_live_pico_aorta.sh --robot-ip 10.100.23.163 -- --show-human
+```
+
 First create your conda environment:
 
 ```bash

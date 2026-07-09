@@ -1,0 +1,51 @@
+{
+  namespace: "80100090026FF100001",
+  mode: "client",
+  connect: {
+    endpoints: ["tcp/10.100.23.163:7447"],
+    // Defense in depth (vs. systemd ordering in init.sh): tolerate the
+    // router being briefly unavailable. Without these, Session::open()
+    // fails immediately with RCL_RET_BAD_ALLOC and the process aborts —
+    // which in turn triggers vita01.target BindsTo cascade. See
+    // RMW_ZENOH_DEPLOYMENT.md "Startup ordering" for the full chain.
+    timeout_ms: 10000,
+    exit_on_failure: false,
+    retry: {
+      period_init_ms: 200,
+      period_max_ms: 2000,
+      period_increase_factor: 2,
+    },
+  },
+  listen: {
+    endpoints: [],
+  },
+  scouting: {
+    multicast: { enabled: false },
+    gossip: { enabled: false },
+  },
+
+  timestamping: {
+    enabled: { router: true, peer: false, client: false },
+    drop_future_timestamp: false,
+  },
+
+  queries_default_timeout: 600000,
+  transport: {
+    auth: {
+      usrpwd: {
+        user: "vita01-datou",
+        password: "b10ed3dc5fed912b39a7b256536a8a1df7b329d0779bce9d037fde6e9bd2f3da",
+      },
+    },
+    link: { tx: { lease: 3000, keep_alive: 4 } },
+    shared_memory: {
+      enabled: true,
+      mode: "lazy",
+      transport_optimization: {
+        enabled: true,
+        pool_size: 8388608,
+        message_size_threshold: 256,
+      },
+    }
+  }
+}
