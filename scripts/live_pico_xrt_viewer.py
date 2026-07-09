@@ -54,6 +54,7 @@ def main() -> None:
         print(f"[live-viewer] recording {record_path}")
 
     prev_pelvis_quat = None
+    prev_arm_normals = None
     frames = 0
     no_body = 0
     last_log = time.time()
@@ -75,7 +76,9 @@ def main() -> None:
                 time.sleep(0.02)
                 continue
 
-            frame, prev_pelvis_quat = body_data_to_pico_xrt_frame(body_data, prev_pelvis_quat)
+            frame, prev_pelvis_quat, prev_arm_normals = body_data_to_pico_xrt_frame(
+                body_data, prev_pelvis_quat, prev_arm_normals
+            )
             qpos = retargeter.retarget(frame, offset_to_ground=False)
             frames += 1
 

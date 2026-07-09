@@ -271,7 +271,7 @@ def _positions_to_frame(positions, prev_pelvis_quat, prev_arm_normals=None):
     return frame, pelvis_quat, arm_normals
 
 
-def body_data_to_pico_xrt_frame(body_data, prev_pelvis_quat=None):
+def body_data_to_pico_xrt_frame(body_data, prev_pelvis_quat=None, prev_arm_normals=None):
     """Convert one XRoboToolkit body-data dict into a GMR pico_xrt frame.
 
     ``body_data`` is expected to contain the 24 ``PICO_JOINT_ORDER`` joints,
@@ -280,11 +280,12 @@ def body_data_to_pico_xrt_frame(body_data, prev_pelvis_quat=None):
     positions drive the position-based retargeting path.
 
     Returns:
-        ``(frame, pelvis_quat)`` where ``pelvis_quat`` should be fed back as
-        ``prev_pelvis_quat`` on the next frame for stable heading fallback.
+        ``(frame, pelvis_quat, arm_normals)`` where ``pelvis_quat`` and
+        ``arm_normals`` should be fed back on the next frame for stable heading
+        fallback and near-straight arm bend-plane continuity.
     """
     positions = np.asarray([body_data[name][0] for name in PICO_JOINT_ORDER], dtype=np.float64)
-    return _positions_to_frame(positions, prev_pelvis_quat)
+    return _positions_to_frame(positions, prev_pelvis_quat, prev_arm_normals)
 
 
 def _resample_positions(positions, timestamps_s, tgt_fps):
