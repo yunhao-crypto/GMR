@@ -16,6 +16,16 @@ from general_motion_retargeting import RobotMotionViewer
 from general_motion_retargeting.utils.xrobot_streamer import XRobotStreamer
 
 
+def _jsonable_body_data(body_data):
+    return {
+        name: [
+            np.asarray(value[0], dtype=float).tolist(),
+            np.asarray(value[1], dtype=float).tolist(),
+        ]
+        for name, value in body_data.items()
+    }
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--robot", default="vt_human_v2", choices=["vt_human_v2"])
@@ -79,7 +89,7 @@ def main() -> None:
                             "wall_time_ns": time.time_ns(),
                             "robot": args.robot,
                             "actual_human_height": args.actual_human_height,
-                            "body_data": body_data,
+                            "body_data": _jsonable_body_data(body_data),
                             "qpos_pico_xrobot_wxyz": qpos.tolist(),
                         }
                     )
