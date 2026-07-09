@@ -184,6 +184,20 @@ Starting from its release, **GMR** has been massively used by the community. See
 > [!NOTE]
 > The code is tested on Ubuntu 22.04/20.04.
 
+For a one-command setup, including the optional Pico/XRoboToolkit Python
+binding used by the live Pico scripts:
+
+```bash
+./scripts/install_gmr_env.sh
+```
+
+If your Pico SDK is distributed as a local wheel or source directory, pass it
+explicitly:
+
+```bash
+./scripts/install_gmr_env.sh --pico-sdk-path /path/to/xrobotoolkit_sdk.whl
+```
+
 First create your conda environment:
 
 ```bash
