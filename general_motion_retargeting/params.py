@@ -24,6 +24,7 @@ ROBOT_XML_DICT = {
     "pal_talos": ASSET_ROOT / "pal_talos" / "talos.xml",
     "vt_human": ASSET_ROOT / "vt_human" / "vt_human.xml",
     "vt_human_v2": ASSET_ROOT / "vt_human_v2" / "vt_human_v2.xml",
+    "vita02a": ASSET_ROOT / "vita02a" / "vita02a.xml",
 }
 
 IK_CONFIG_DICT = {
@@ -47,6 +48,7 @@ IK_CONFIG_DICT = {
         "tienkung": IK_CONFIG_ROOT / "smplx_to_tienkung.json",
         "vt_human": IK_CONFIG_ROOT / "smplx_to_vt_human.json",
         "vt_human_v2": IK_CONFIG_ROOT / "smplx_to_vt_human_v2.json",
+        "vita02a": IK_CONFIG_ROOT / "smplx_to_vita02a.json",
     },
     "bvh_lafan1":{
         "unitree_g1": IK_CONFIG_ROOT / "bvh_lafan1_to_g1.json",
@@ -57,6 +59,7 @@ IK_CONFIG_DICT = {
         "engineai_pm01": IK_CONFIG_ROOT / "bvh_lafan1_to_pm01.json",
         "pal_talos": IK_CONFIG_ROOT / "bvh_to_talos.json",
         "vt_human_v2": IK_CONFIG_ROOT / "bvh_lafan1_to_vt_human_v2.json",
+        "vita02a": IK_CONFIG_ROOT / "bvh_lafan1_to_vita02a.json",
     },
     "bvh_nokov":{
         "unitree_g1": IK_CONFIG_ROOT / "bvh_nokov_to_g1.json",
@@ -104,6 +107,7 @@ ROBOT_BASE_DICT = {
     "pal_talos": "base_link",
     "vt_human": "base_link",
     "vt_human_v2": "base_link",
+    "vita02a": "base_link",
 }
 
 VIEWER_CAM_DISTANCE_DICT = {
@@ -126,4 +130,5 @@ VIEWER_CAM_DISTANCE_DICT = {
     "pal_talos": 3.0,
     "vt_human": 2.0,
     "vt_human_v2": 2.0,
+    "vita02a": 2.5,
 }

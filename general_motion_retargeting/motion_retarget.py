@@ -72,6 +72,23 @@ _WAIST_REGULARIZER_SPECS = {
             "right_shoulder_yaw_joint": 2.0,
         },
     },
+    # Vita02A shares the vt_human_v2 rationale (same shoulder branch-flip risk,
+    # same "forearm forward" elbow zero-pose that must stay unregularized).
+    # Additionally the NECK has no IK anchor in either config — without this
+    # pull neck_yaw/neck_pitch are completely unconstrained; cost 20 with no
+    # competing task pins the head to neutral, matching the tracking task's
+    # reference-neutral neck contract.
+    "vita02a": {
+        "joints": (
+            "waist_yaw_joint", "waist_pitch_joint",
+            "left_shoulder_pitch_joint", "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "right_shoulder_pitch_joint", "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "neck_yaw_joint", "neck_pitch_joint",
+        ),
+        "cost": 20.0,
+    },
 }
 
 _PREV_POSTURE_SMOOTHING_SPECS = {
@@ -128,11 +145,37 @@ _PREV_POSTURE_SMOOTHING_SPECS = {
             "waist_pitch_joint": 1e-1,
         },
     },
+    # v2 set + the six wrist DOFs (v2 had none): the wrist_task rows are
+    # orientation-weighted only, so distal wrist jitter needs the same
+    # frame-to-frame smoothing the arms get.
+    "vita02a": {
+        "default_cost": 1e-3,
+        "joint_costs": {
+            "waist_yaw_joint": 1e-1,
+            "waist_pitch_joint": 1e-1,
+            "left_shoulder_pitch_joint": 5e-2,
+            "left_shoulder_roll_joint": 5e-2,
+            "left_shoulder_yaw_joint": 5e-2,
+            "left_elbow_joint": 5e-2,
+            "left_wrist_roll_joint": 5e-2,
+            "left_wrist_yaw_joint": 5e-2,
+            "left_wrist_pitch_joint": 5e-2,
+            "right_shoulder_pitch_joint": 5e-2,
+            "right_shoulder_roll_joint": 5e-2,
+            "right_shoulder_yaw_joint": 5e-2,
+            "right_elbow_joint": 5e-2,
+            "right_wrist_roll_joint": 5e-2,
+            "right_wrist_yaw_joint": 5e-2,
+            "right_wrist_pitch_joint": 5e-2,
+        },
+    },
 }
 
 _GROUND_SNAP_SPECS = {
     "vt_human": {"geom_name_token": "foot", "clearance": 0.0},
     "vt_human_v2": {"geom_name_token": "foot", "clearance": 0.0},
+    # Matches the URDF-inherited collision_{l,r}_foot*_cylinder geom names.
+    "vita02a": {"geom_name_token": "foot", "clearance": 0.0},
 }
 
 _QPOS_SMOOTHING_SPECS = {
@@ -178,6 +221,29 @@ _QPOS_SMOOTHING_SPECS = {
         "joints": (
             "waist_yaw_joint",
             "waist_pitch_joint",
+        ),
+    },
+    # v2 set + wrists (see _PREV_POSTURE_SMOOTHING_SPECS note). Legs stay
+    # excluded — the offline standing-segment filter handles them.
+    "vita02a": {
+        "alpha": 0.35,
+        "joints": (
+            "waist_yaw_joint",
+            "waist_pitch_joint",
+            "left_shoulder_pitch_joint",
+            "left_shoulder_roll_joint",
+            "left_shoulder_yaw_joint",
+            "left_elbow_joint",
+            "left_wrist_roll_joint",
+            "left_wrist_yaw_joint",
+            "left_wrist_pitch_joint",
+            "right_shoulder_pitch_joint",
+            "right_shoulder_roll_joint",
+            "right_shoulder_yaw_joint",
+            "right_elbow_joint",
+            "right_wrist_roll_joint",
+            "right_wrist_yaw_joint",
+            "right_wrist_pitch_joint",
         ),
     },
 }

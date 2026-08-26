@@ -53,9 +53,26 @@ _VT_HUMAN_POSTPROCESS_SPEC = {
     },
 }
 
+# Vita02A: identical structure to the VT spec (same joint naming, same
+# base_link/toe standing bodies, same collision_*_foot* geom token) — only the
+# global filter set grows by the six wrist DOFs vt_human lacks.
+_VITA02A_POSTPROCESS_SPEC = {
+    **_VT_HUMAN_POSTPROCESS_SPEC,
+    "filter_joint_names": (
+        *_VT_HUMAN_POSTPROCESS_SPEC["filter_joint_names"],
+        "left_wrist_roll_joint",
+        "left_wrist_yaw_joint",
+        "left_wrist_pitch_joint",
+        "right_wrist_roll_joint",
+        "right_wrist_yaw_joint",
+        "right_wrist_pitch_joint",
+    ),
+}
+
 _SEQUENCE_POSTPROCESS_SPECS = {
     "vt_human": _VT_HUMAN_POSTPROCESS_SPEC,
     "vt_human_v2": _VT_HUMAN_POSTPROCESS_SPEC,
+    "vita02a": _VITA02A_POSTPROCESS_SPEC,
 }
 
 
