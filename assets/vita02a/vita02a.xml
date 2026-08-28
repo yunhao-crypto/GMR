@@ -153,7 +153,7 @@
         <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.325 0.337 0.353 1" mesh="waist_yaw_link"/>
         <geom name="collision_waist_yaw_cylinder" size="0.04 0.04" pos="0 0 0.035742" quat="0.707105 0.707108 0 0" type="cylinder" rgba="0.325 0.337 0.353 1"/>
         <body name="waist_pitch_link" pos="0 0 0.0527">
-          <inertial pos="-0.0131491 -0.00026006 0.169955" quat="0.999977 -0.00151187 -0.0056332 0.00359734" mass="12.308" diaginertia="0.188497 0.1613 0.059916"/>
+          <inertial pos="-0.0131261 -0.0001286 0.174892" quat="0.999978 -0.0024116 -0.00505652 0.00349409" mass="13.126" diaginertia="0.206252 0.177273 0.0629778"/>
           <joint name="waist_pitch_joint" pos="0 0 0" axis="0 1 0" range="-0.523599 0.523599" actuatorfrcrange="-70.5 70.5" armature="0.0150675"/>
           <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.851 0.851 0.839 1" mesh="waist_pitch_link"/>
           <geom name="collision_body_box" size="0.085 0.1 0.2" pos="-0.013 0 0.17" type="box" rgba="0.851 0.851 0.839 1"/>
@@ -170,18 +170,18 @@
             </body>
           </body>
           <body name="left_shoulder_pitch_link" pos="-0.01325 0.0952755 0.308754" quat="0.990268 0.139173 0 0">
-            <inertial pos="-0.00130012 0.0539604 -0.0220066" quat="0.799147 0.600938 0.00961901 0.0120735" mass="1.11" diaginertia="0.00140125 0.00116157 0.000941761"/>
+            <inertial pos="-0.0013 0.05396 -0.022007" quat="0.799147 0.600938 0.00960715 0.0120778" mass="1.11" diaginertia="0.00128816 0.00106782 0.000865753"/>
             <joint name="left_shoulder_pitch_joint" pos="0 0 0" axis="0 1 0" range="-2.56563 2.56563" actuatorfrcrange="-60 60" armature="0.0159"/>
             <geom quat="0.990268 -0.139173 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.26 0.26 0.27 1" mesh="left_shoulder_pitch_link"/>
             <geom name="collision_l_shoulder_pitch_cylinder" size="0.045 0.0425" pos="-0.0065 0.0560219 -0.0223058" quat="0.700224 -0.0984115 0.700226 -0.0984115" type="cylinder" rgba="0.26 0.26 0.27 1"/>
             <body name="left_shoulder_roll_link" pos="-0.00015 0.0572 -0.0238" quat="0.990268 -0.139173 0 0">
-              <inertial pos="0.00363843 0.00654776 -0.0671287" quat="0.710112 0.0234123 -0.0369233 0.70273" mass="1.186" diaginertia="0.00242492 0.00218488 0.00122944"/>
+              <inertial pos="0.00363843 0.00654776 -0.0671287" quat="0.710116 0.0234104 -0.0369263 0.702726" mass="1.186" diaginertia="0.00245238 0.00220963 0.00124337"/>
               <joint name="left_shoulder_roll_joint" pos="0 0 0" axis="1 0 0" range="-0.235619 2.27766" actuatorfrcrange="-60 60" armature="0.0159"/>
               <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.26 0.26 0.27 1" mesh="left_shoulder_roll_link"/>
               <geom name="collision_l_shoulder_roll_cylinder" size="0.042 0.0375" pos="0.0074 0.0065 -0.079" type="cylinder" rgba="0.26 0.26 0.27 1"/>
               <body name="left_shoulder_yaw_link" pos="0.003408 0.0073253 -0.06213" quat="0.999962 0.00872629 0 0">
-                <inertial pos="0.00326425 -0.00288141 -0.0806376" quat="0.997186 -0.0253899 -0.0608677 0.035634" mass="0.564358" diaginertia="0.0019425 0.00185109 0.000936184"/>
-                <joint name="left_shoulder_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.9819 1.90503" actuatorfrcrange="-60 60" armature="0.0159"/>
+                <inertial pos="0.00326425 -0.00147369 -0.0806756" quat="0.997186 -0.0253904 -0.0608652 0.0356349" mass="0.5653" diaginertia="0.00194574 0.00185418 0.000937747"/>
+                <joint name="left_shoulder_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.4583 2.42817" actuatorfrcrange="-60 60" armature="0.0159"/>
                 <geom quat="0.999962 -0.00872629 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.26 0.26 0.27 1" mesh="left_shoulder_yaw_link"/>
                 <geom name="collision_l_shoulder_yaw_cylinder" size="0.04 0.045" pos="-0.00134 -0.000785338 -0.0449931" quat="0.999962 -0.00872629 0 0" type="cylinder" rgba="0.26 0.26 0.27 1"/>
                 <body name="left_elbow_link" pos="0.0129 0 -0.138801">
@@ -201,7 +201,7 @@
                       <geom pos="0 0 0" quat="0.999962 -0.00874834 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.62 0.63 0.62 1" mesh="left_wrist_yaw_link"/>
                       <geom name="collision_wrist_yaw_l_cylinder" size="0.034 0.025" pos="0 -0.00052488 -0.0299954" quat="0.999962 -0.00874834 0 0" type="cylinder" rgba="0.62 0.63 0.62 1"/>
                       <body name="left_wrist_pitch_link" pos="0.0736184 0.0305912 -0.0285635" quat="1 -1.12982e-05 0 0">
-                        <inertial pos="0.0021777 -0.025302 -0.00038082" quat="0.35373 0.61513 -0.348401 0.61246" mass="0.573829" diaginertia="0.000371462 0.000337582 0.000312825"/>
+                        <inertial pos="0.045914 -0.0247401 0.0036696" quat="0.154653 0.66368 0.173681 0.710947" mass="0.945829" diaginertia="0.00402328 0.00385398 0.00070471"/>
                         <joint name="left_wrist_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.87099 1.96873" actuatorfrcrange="-15 15" armature="0.00316508"/>
                         <geom quat="0.999962 -0.00873704 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.62 0.63 0.62 1" mesh="left_wrist_pitch_link"/>
                         <geom name="collision_wrist_pitch_l_cylinder" size="0.035 0.025" pos="0 -0.0199969 0.000349468" quat="0.700902 -0.713258 0 0" type="cylinder" rgba="0.62 0.63 0.62 1"/>
@@ -214,18 +214,18 @@
             </body>
           </body>
           <body name="right_shoulder_pitch_link" pos="-0.01325 -0.0952767 0.30875" quat="0.990268 -0.139173 0 0">
-            <inertial pos="-0.00130011 -0.0539604 -0.0220067" quat="0.600927 0.799155 -0.012074 -0.00961841" mass="1.11" diaginertia="0.00140124 0.00116158 0.000941746"/>
+            <inertial pos="-0.00130011 -0.0539604 -0.0220067" quat="0.600938 0.799147 -0.0120778 -0.00960715" mass="1.11" diaginertia="0.00128816 0.00106782 0.000865753"/>
             <joint name="right_shoulder_pitch_joint" pos="0 0 0" axis="0 1 0" range="-2.56563 2.56563" actuatorfrcrange="-60 60" armature="0.0159"/>
             <geom quat="0.990268 0.139173 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.26 0.26 0.27 1" mesh="right_shoulder_pitch_link"/>
             <geom name="collision_r_shoulder_pitch_cylinder" size="0.045 0.0425" pos="-0.0065 -0.0560219 -0.0223058" quat="0.700224 0.0984115 0.700226 0.0984115" type="cylinder" rgba="0.26 0.26 0.27 1"/>
             <body name="right_shoulder_roll_link" pos="-0.000149987 -0.0572 -0.0238" quat="0.990268 0.139173 0 0">
-              <inertial pos="0.00363862 -0.0054549 -0.0671293" quat="0.702817 -0.0369284 0.0233981 0.710026" mass="1.186" diaginertia="0.00242484 0.00218484 0.00122944"/>
+              <inertial pos="0.00363843 -0.00654776 -0.0671287" quat="0.702726 -0.0369263 0.0234104 0.710116" mass="1.186" diaginertia="0.00245238 0.00220963 0.00124337"/>
               <joint name="right_shoulder_roll_joint" pos="0 0 0" axis="1 0 0" range="-2.27766 0.235619" actuatorfrcrange="-60 60" armature="0.0159"/>
               <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.26 0.26 0.27 1" mesh="right_shoulder_roll_link"/>
               <geom name="collision_r_shoulder_roll_cylinder" size="0.042 0.0375" pos="0.0074 -0.0065 -0.079" type="cylinder" rgba="0.26 0.26 0.27 1"/>
               <body name="right_shoulder_yaw_link" pos="0.00340796 -0.00732529 -0.0621299" quat="0.999962 -0.00872654 0 0">
-                <inertial pos="0.00326567 0.00288154 -0.0806354" quat="0.997191 0.0254016 -0.0608792 -0.0354863" mass="0.564314" diaginertia="0.00194248 0.00185106 0.000936146"/>
-                <joint name="right_shoulder_yaw_joint" pos="0 0 0" axis="0 0 1" range="-1.90503 2.9819" actuatorfrcrange="-60 60" armature="0.0159"/>
+                <inertial pos="0.00326425 0.00147369 -0.0806756" quat="0.997186 0.0253904 -0.0608652 -0.0356349" mass="0.5653" diaginertia="0.00194574 0.00185418 0.000937747"/>
+                <joint name="right_shoulder_yaw_joint" pos="0 0 0" axis="0 0 1" range="-2.42817 2.4583" actuatorfrcrange="-60 60" armature="0.0159"/>
                 <geom quat="0.999962 0.00872654 0 0" type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.26 0.26 0.27 1" mesh="right_shoulder_yaw_link"/>
                 <geom name="collision_r_shoulder_yaw_cylinder" size="0.04 0.045" pos="-0.00134 0.000785358 -0.0449931" quat="0.999962 0.00872654 0 0" type="cylinder" rgba="0.26 0.26 0.27 1"/>
                 <body name="right_elbow_link" pos="0.0129 0 -0.1388">
@@ -245,7 +245,7 @@
                       <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.62 0.63 0.62 1" mesh="right_wrist_yaw_link"/>
                       <geom name="collision_wrist_yaw_r_cylinder" size="0.034 0.025" pos="0 0 -0.03" type="cylinder" rgba="0.62 0.63 0.62 1"/>
                       <body name="right_wrist_pitch_link" pos="0.073618 -0.030591 -0.028563">
-                        <inertial pos="0.0021777 0.025302 -0.00038082" quat="0.61513 0.35373 -0.61246 0.348401" mass="0.573829" diaginertia="0.000371462 0.000337582 0.000312825"/>
+                        <inertial pos="0.045914 0.0247401 0.0036696" quat="-0.154653 0.66368 -0.173681 0.710947" mass="0.945829" diaginertia="0.00402328 0.00385398 0.00070471"/>
                         <joint name="right_wrist_pitch_joint" pos="0 0 0" axis="0 1 0" range="-1.87099 1.96873" actuatorfrcrange="-15 15" armature="0.00316508"/>
                         <geom type="mesh" contype="0" conaffinity="0" group="1" density="0" rgba="0.62 0.63 0.62 1" mesh="right_wrist_pitch_link"/>
                         <geom name="collision_wrist_pitch_r_cylinder" size="0.035 0.025" pos="0 0.02 0" quat="0.707105 -0.707108 0 0" type="cylinder" rgba="0.62 0.63 0.62 1"/>
